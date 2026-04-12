@@ -546,6 +546,15 @@ sync_template() {
 
   cd "$dest"
 
+  # Ensure a local git identity so the rebase can write commits even when
+  # the host has no global git config.
+  if [ -z "$(git config user.email)" ]; then
+    git config user.email "$(yq '.user.email' "$dest/agent.yml")"
+  fi
+  if [ -z "$(git config user.name)" ]; then
+    git config user.name "$(yq '.user.name' "$dest/agent.yml")"
+  fi
+
   # Abort if the working tree is dirty — rebasing would corrupt unsaved work.
   if ! git diff --quiet || ! git diff --cached --quiet; then
     echo "ERROR: working tree has uncommitted changes. Commit or stash first." >&2
@@ -706,6 +715,10 @@ scaffold_with_fork() {
       git symbolic-ref HEAD refs/heads/main
       git reset --mixed -q HEAD
       git checkout -b "$branch" -q
+      # Persist a local git identity so future commits/rebases don't depend
+      # on a global --user.email being set on whatever host the agent lands on.
+      git config user.email "$(yq '.user.email' "$dest/agent.yml")"
+      git config user.name  "$(yq '.user.name'  "$dest/agent.yml")"
     else
       echo "  ⚠ could not fetch origin/main:" >&2
       echo "$fetch_err" | sed 's/^/      /' >&2

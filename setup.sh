@@ -567,13 +567,11 @@ scaffold_with_fork() {
   template_url=$(yq '.scaffold.template_url' "$dest/agent.yml")
   token=""
   [ -f "$dest/.env" ] && token=$(grep -E '^GITHUB_FORK_PAT=' "$dest/.env" | cut -d= -f2- || true)
-  priv_flag=""
-  [ "$fork_private" = "true" ] && priv_flag="--private"
 
   echo "  ▸ Creating fork ${fork_owner}/${fork_name} from ${template_url}..."
   local fork_stderr
   fork_stderr=$(GH_TOKEN="$token" gh repo fork "$template_url" \
-    --fork-name "$fork_name" --default-branch-only --clone=false $priv_flag 2>&1 >/dev/null) || {
+    --fork-name "$fork_name" --default-branch-only --clone=false 2>&1 >/dev/null) || {
     if echo "$fork_stderr" | grep -qiE "already exists|name already"; then
       echo "  ✓ fork already exists — reusing"
     else
@@ -583,6 +581,17 @@ scaffold_with_fork() {
     fi
   }
   [ -n "${fork_stderr:-}" ] || echo "  ✓ fork created"
+
+  # gh repo fork can't set visibility at creation time — forks inherit the
+  # upstream's visibility. If the user asked for private, flip it now.
+  if [ "$fork_private" = "true" ]; then
+    if GH_TOKEN="$token" gh repo edit "${fork_owner}/${fork_name}" --visibility private --accept-visibility-change-consequences >/dev/null 2>&1; then
+      echo "  ✓ fork set to private"
+    else
+      echo "  ⚠ could not set fork to private automatically — do it manually at"
+      echo "     https://github.com/${fork_owner}/${fork_name}/settings"
+    fi
+  fi
 
   # Query existing branches to compute next version. Retry because newly
   # created forks may not be immediately queryable.

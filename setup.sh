@@ -10,6 +10,8 @@ source "$SCRIPT_DIR/scripts/lib/wizard.sh"
 
 MODE="auto"
 FORCE_CLAUDE_MD=false
+UNINSTALL_PURGE=false
+UNINSTALL_YES=false
 
 print_usage() {
   cat << 'EOF'
@@ -21,6 +23,11 @@ Options:
   --force-claude-md    With --regenerate, also overwrite CLAUDE.md.
   --non-interactive    Fail if agent.yml missing; no prompts.
   --reset              Delete agent.yml and re-run the wizard.
+  --uninstall          Remove installed services, agent scripts, timers, tmux
+                       sessions, and generated files inside the repo.
+                       Preserves agent.yml and .env unless --purge is given.
+  --purge              With --uninstall, also remove agent.yml and .env.
+  --yes                With --uninstall, skip the confirmation prompt.
   --help               Show this message.
 
 Files:
@@ -37,6 +44,9 @@ parse_args() {
       --reset) MODE="reset"; shift ;;
       --non-interactive) MODE="non-interactive"; shift ;;
       --force-claude-md) FORCE_CLAUDE_MD=true; shift ;;
+      --uninstall) MODE="uninstall"; shift ;;
+      --purge) UNINSTALL_PURGE=true; shift ;;
+      --yes|-y) UNINSTALL_YES=true; shift ;;
       --help|-h) print_usage; exit 0 ;;
       *) echo "Unknown option: $1" >&2; print_usage; exit 1 ;;
     esac
@@ -375,6 +385,142 @@ maybe_print_plugin_hints() {
   done
 }
 
+# Undo what install_service + regenerate created. Always safe to re-run.
+# Preserves agent.yml and .env unless --purge is set.
+uninstall() {
+  local agent_yml="$SCRIPT_DIR/agent.yml"
+  local env_file="$SCRIPT_DIR/.env"
+
+  if [ ! -f "$agent_yml" ]; then
+    echo "ERROR: agent.yml not found; nothing to uninstall." >&2
+    echo "       (If you manually deleted agent.yml but files linger, remove them by hand.)" >&2
+    exit 1
+  fi
+
+  render_load_context "$agent_yml"
+  local agent_name="${AGENT_NAME:-}"
+  if [ -z "$agent_name" ]; then
+    echo "ERROR: agent.name missing from agent.yml; cannot identify what to uninstall." >&2
+    exit 1
+  fi
+
+  local os
+  os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+  echo ""
+  echo "═══════════════════════════════════════════════════"
+  echo " Uninstall — ${agent_name}"
+  echo "═══════════════════════════════════════════════════"
+  echo ""
+  echo "This will remove:"
+  echo "  - tmux session: ${agent_name} (if running)"
+  case "$os" in
+    linux)
+      echo "  - ~/.local/bin/${agent_name}.sh"
+      echo "  - ~/.config/systemd/user/${agent_name}.service (stop + disable)"
+      echo "  - ~/.config/systemd/user/${agent_name}-heartbeat.{service,timer} (if present)"
+      ;;
+    darwin)
+      echo "  - ~/.local/bin/${agent_name}.sh"
+      echo "  - ~/Library/LaunchAgents/local.${agent_name}.plist (unload + delete)"
+      echo "  - ~/Library/LaunchAgents/cloud.rodribot.${agent_name}-heartbeat.plist (if present)"
+      echo "  - ~/.local/share/${agent_name}/ (log directory)"
+      ;;
+  esac
+  echo "  - Generated repo files: CLAUDE.md, .mcp.json, .env.example,"
+  echo "    scripts/heartbeat/heartbeat.conf, scripts/heartbeat/logs/"
+  if [ "$UNINSTALL_PURGE" = true ]; then
+    echo "  - agent.yml (source of truth)"
+    echo "  - .env (secrets)"
+  else
+    echo ""
+    echo "Preserved (pass --purge to also remove):"
+    echo "  - agent.yml"
+    echo "  - .env"
+  fi
+  echo ""
+
+  if [ "$UNINSTALL_YES" != true ]; then
+    if [ "$(ask_yn 'Continue?' 'n')" != "true" ]; then
+      echo "Aborted."
+      exit 0
+    fi
+  fi
+
+  echo ""
+  echo "▸ Stopping services"
+
+  # Kill tmux session if present.
+  if command -v tmux &>/dev/null; then
+    tmux kill-session -t "$agent_name" 2>/dev/null && echo "  ✓ killed tmux session: ${agent_name}" || true
+  fi
+
+  case "$os" in
+    linux)
+      # Main service
+      systemctl --user stop "${agent_name}.service" 2>/dev/null && echo "  ✓ stopped ${agent_name}.service" || true
+      systemctl --user disable "${agent_name}.service" 2>/dev/null && echo "  ✓ disabled ${agent_name}.service" || true
+
+      # Heartbeat timer (may or may not exist; launch.sh install uses {agent}-heartbeat)
+      systemctl --user stop "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ stopped ${agent_name}-heartbeat.timer" || true
+      systemctl --user disable "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ disabled ${agent_name}-heartbeat.timer" || true
+
+      echo ""
+      echo "▸ Removing files"
+      rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
+      rm -f "$HOME/.config/systemd/user/${agent_name}.service" && echo "  ✓ ~/.config/systemd/user/${agent_name}.service" || true
+      rm -f "$HOME/.config/systemd/user/${agent_name}-heartbeat.service" \
+            "$HOME/.config/systemd/user/${agent_name}-heartbeat.timer" 2>/dev/null && \
+        echo "  ✓ heartbeat service/timer units (if any)" || true
+
+      systemctl --user daemon-reload 2>/dev/null || true
+      ;;
+    darwin)
+      local plist="$HOME/Library/LaunchAgents/local.${agent_name}.plist"
+      local hb_plist="$HOME/Library/LaunchAgents/cloud.rodribot.${agent_name}-heartbeat.plist"
+
+      if [ -f "$plist" ]; then
+        launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || \
+          launchctl unload "$plist" 2>/dev/null || true
+        echo "  ✓ unloaded local.${agent_name}"
+      fi
+      if [ -f "$hb_plist" ]; then
+        launchctl bootout "gui/$(id -u)" "$hb_plist" 2>/dev/null || \
+          launchctl unload "$hb_plist" 2>/dev/null || true
+        echo "  ✓ unloaded ${agent_name}-heartbeat"
+      fi
+
+      echo ""
+      echo "▸ Removing files"
+      rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
+      rm -f "$plist" 2>/dev/null && echo "  ✓ $plist" || true
+      rm -f "$hb_plist" 2>/dev/null && echo "  ✓ $hb_plist" || true
+      rm -rf "$HOME/.local/share/${agent_name}" 2>/dev/null && echo "  ✓ ~/.local/share/${agent_name}/" || true
+      ;;
+  esac
+
+  echo ""
+  echo "▸ Removing generated repo files"
+  rm -f "$SCRIPT_DIR/CLAUDE.md" && echo "  ✓ CLAUDE.md" || true
+  rm -f "$SCRIPT_DIR/.mcp.json" && echo "  ✓ .mcp.json" || true
+  rm -f "$SCRIPT_DIR/.env.example" && echo "  ✓ .env.example" || true
+  rm -f "$SCRIPT_DIR/scripts/heartbeat/heartbeat.conf" && echo "  ✓ scripts/heartbeat/heartbeat.conf" || true
+  rm -rf "$SCRIPT_DIR/scripts/heartbeat/logs" && echo "  ✓ scripts/heartbeat/logs/" || true
+
+  if [ "$UNINSTALL_PURGE" = true ]; then
+    echo ""
+    echo "▸ Purging source of truth and secrets"
+    rm -f "$agent_yml" && echo "  ✓ agent.yml" || true
+    rm -f "$env_file" && echo "  ✓ .env" || true
+  fi
+
+  echo ""
+  echo "✓ Uninstall complete."
+  if [ "$UNINSTALL_PURGE" != true ]; then
+    echo "  agent.yml and .env preserved — run ./setup.sh to reinstall from them."
+  fi
+}
+
 main() {
   parse_args "$@"
   yaml_require_yq || exit 1
@@ -400,6 +546,9 @@ main() {
         exit 1
       fi
       regenerate
+      ;;
+    uninstall)
+      uninstall
       ;;
     auto)
       if [ -f "$agent_yml" ]; then

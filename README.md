@@ -32,10 +32,12 @@ The wizard asks about identity, user, deployment, notifications, MCPs, and featu
 ## Re-running
 
 ```bash
-./setup.sh                  # first-run wizard, or regenerate if agent.yml exists
-./setup.sh --regenerate     # explicit regenerate (keeps your CLAUDE.md)
-./setup.sh --reset          # wipe agent.yml and re-run the wizard
-./setup.sh --help           # all flags
+./setup.sh                      # first-run wizard, or regenerate if agent.yml exists
+./setup.sh --regenerate         # explicit regenerate (keeps your CLAUDE.md)
+./setup.sh --reset              # wipe agent.yml and re-run the wizard
+./setup.sh --uninstall          # undo install: stop services, remove scripts, timers, generated files
+./setup.sh --uninstall --purge  # also remove agent.yml and .env
+./setup.sh --help               # all flags
 ```
 
 ## File ownership

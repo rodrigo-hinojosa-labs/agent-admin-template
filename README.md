@@ -5,11 +5,22 @@ Fork-friendly template for building Claude Code admin agents.
 Turns the Claude Code CLI into a persistent, self-recovering personal admin agent with:
 - **Wizard-driven setup** — answer a few questions, get a working agent
 - **Installer → destination model** — the clone is just the installer; your agent lives at a path you choose
-- **Pluggable notifications** — none, log, Telegram (trivially extensible)
+- **Pluggable heartbeat notifier** — none, log, or a standalone Telegram bot (easy to extend)
 - **Pre-configured MCPs** — Playwright, Fetch, Time, Sequential Thinking out of the box; optional Atlassian (multi-workspace) and GitHub
 - **Persistent memory** (via `claude-mem` plugin)
 - **Auto-recovery** — systemd timer (Linux) or launchd (macOS) keeps it running
 - **Periodic heartbeat** — scheduled prompts that report back via your chosen channel
+
+## Telegram: two separate things
+
+This template treats Telegram as two distinct concerns:
+
+| Use case | How to set it up |
+|----------|------------------|
+| **Bidirectional chat with the agent** (you message the agent from Telegram, it replies) | Install the official plugin: `claude plugin install telegram@claude-plugins-official` and follow its setup. Independent of this template. |
+| **Heartbeat status pings** (one-way "heartbeat ran / failed" notifications) | Choose `telegram` during the wizard's "Heartbeat notifications" step. Uses a standalone bot + chat ID in `.env` (`NOTIFY_BOT_TOKEN` / `NOTIFY_CHAT_ID`). |
+
+You can use either, both (with different bots to separate chat from alerts), or neither.
 
 ## How it works
 

@@ -109,21 +109,30 @@ run_wizard() {
   deploy_svc=$(ask_yn "Install as system service?" "y")
   echo ""
 
-  # ── 4. Notifications ────────────────────────────────
-  echo "▸ Notifications (pluggable)"
-  echo "  Options: none | log (file only) | telegram"
+  # ── 4. Heartbeat notifications ──────────────────────
+  echo "▸ Heartbeat notifications"
+  echo "  When the heartbeat runs, where should it report status?"
+  echo "    none     — silent (default)"
+  echo "    log      — append to scripts/heartbeat/logs/notifications.log"
+  echo "    telegram — standalone notifier bot (one-way status pings)"
+  echo ""
+  echo "  NOTE: This is ONLY for heartbeat pings. For two-way Telegram chat"
+  echo "        with your agent, install the plugin separately after setup:"
+  echo "          claude plugin install telegram@claude-plugins-official"
+  echo ""
   local notify_channel notify_bot_token="" notify_chat_id=""
-  notify_channel=$(ask_choice "Notification channel" "none" "none log telegram")
+  notify_channel=$(ask_choice "Heartbeat notification channel" "none" "none log telegram")
   if [ "$notify_channel" = "telegram" ]; then
-    echo "  Create a bot at @BotFather to get a token."
+    echo "  Heartbeat will use a dedicated bot (separate from the chat plugin)."
+    echo "  Create it at @BotFather and copy its token."
     echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
-    notify_bot_token=$(ask_secret "Bot token (or skip)")
-    echo "  Message @userinfobot to get your chat ID (numeric)."
+    notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
+    echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
     echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
     notify_chat_id=$(ask "Chat ID (or skip)" "")
     if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
       echo ""
-      echo "  ⚠  Telegram credentials incomplete — notifications are disabled"
+      echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"
       echo "     until you fill the missing value(s) in .env:"
       [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
       [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
@@ -192,7 +201,7 @@ run_wizard() {
   echo "  Timezone:        $user_tz"
   echo "  Workspace:       $deploy_ws"
   echo "  Service:         $deploy_svc"
-  echo "  Notifications:   $notify_channel"
+  echo "  Heartbeat notif: $notify_channel"
   echo "  Heartbeat:       $hb_enabled (interval: $hb_interval)"
   echo "  Atlassian:       $([ -n "$atlassian_entries" ] && echo "configured" || echo "disabled")"
   echo "  GitHub MCP:      $github_enabled"
@@ -213,14 +222,11 @@ $atlassian_entries"
     atlassian_yaml="  atlassian: []"
   fi
 
-  if [ "$notify_channel" = "telegram" ]; then
-    plugins_yaml="plugins:
+  # Always suggest the Telegram plugin — it's the recommended path for
+  # bidirectional chat, independent of the heartbeat notifier choice.
+  plugins_yaml="plugins:
   - telegram@claude-plugins-official
   - claude-mem@thedotmack"
-  else
-    plugins_yaml="plugins:
-  - claude-mem@thedotmack"
-  fi
 
   # ── Write agent.yml ─────────────────────────────────
   cat > "$agent_yml" << EOF

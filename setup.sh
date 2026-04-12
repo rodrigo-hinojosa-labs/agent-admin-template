@@ -238,7 +238,7 @@ run_wizard() {
   if [ "$(ask_yn 'Enable Atlassian MCP?' 'n')" = "true" ]; then
     while true; do
       local ws_name ws_url ws_email ws_token
-      ws_name=$(ask "Workspace name (e.g. personal, work)" "personal")
+      ws_name=$(ask_required "Workspace alias (e.g. personal, work) — unique identifier for this Atlassian account")
       ws_url=$(ask_required "Atlassian URL (e.g. https://yourco.atlassian.net)")
       ws_email=$(ask "Email" "$user_email")
       ws_token=$(ask_secret "API token")
@@ -256,9 +256,10 @@ run_wizard() {
     done
   fi
 
-  local github_enabled="false" github_pat=""
+  local github_enabled="false" github_email="" github_pat=""
   if [ "$(ask_yn 'Enable GitHub MCP?' 'n')" = "true" ]; then
     github_enabled="true"
+    github_email=$(ask "GitHub account email" "$user_email")
     github_pat=$(ask_secret "GitHub Personal Access Token")
   fi
   echo ""
@@ -404,6 +405,7 @@ mcps:
 $atlassian_yaml
   github:
     enabled: $github_enabled
+    email: "$github_email"
 
 $plugins_yaml
 EOF

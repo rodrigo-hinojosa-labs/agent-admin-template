@@ -12,6 +12,8 @@ MODE="auto"
 FORCE_CLAUDE_MD=false
 UNINSTALL_PURGE=false
 UNINSTALL_YES=false
+DESTINATION=""
+IN_PLACE=false
 
 print_usage() {
   cat << 'EOF'
@@ -28,6 +30,9 @@ Options:
                        Preserves agent.yml and .env unless --purge is given.
   --purge              With --uninstall, also remove agent.yml and .env.
   --yes                With --uninstall, skip the confirmation prompt.
+  --destination PATH   (wizard only) Use PATH instead of prompting for the destination.
+  --in-place           (wizard only) Skip scaffold — generate files in the current
+                       directory (legacy behavior).
   --help               Show this message.
 
 Files:
@@ -47,6 +52,8 @@ parse_args() {
       --uninstall) MODE="uninstall"; shift ;;
       --purge) UNINSTALL_PURGE=true; shift ;;
       --yes|-y) UNINSTALL_YES=true; shift ;;
+      --destination) DESTINATION="$2"; shift 2 ;;
+      --in-place) IN_PLACE=true; shift ;;
       --help|-h) print_usage; exit 0 ;;
       *) echo "Unknown option: $1" >&2; print_usage; exit 1 ;;
     esac
@@ -93,7 +100,12 @@ run_wizard() {
   echo "▸ Deployment"
   local deploy_host deploy_ws deploy_svc
   deploy_host=$(ask "Host machine name" "$(hostname)")
-  deploy_ws=$(ask "Workspace directory" "\$HOME/Claude/Agents/$agent_name")
+  if [ -n "$DESTINATION" ]; then
+    deploy_ws="$DESTINATION"
+    echo "  Agent destination directory: $deploy_ws (from --destination flag)"
+  else
+    deploy_ws=$(ask "Agent destination directory" "\$HOME/Claude/Agents/$agent_name")
+  fi
   deploy_svc=$(ask_yn "Install as system service?" "y")
   echo ""
 
@@ -269,8 +281,115 @@ EOF
   echo "✓ agent.yml and .env written"
   echo ""
 
-  # Chain into regeneration so the user ends the wizard with a working agent.
+  local src_dir="$SCRIPT_DIR"
+  scaffold_destination
   regenerate
+
+  if [ "$IN_PLACE" != true ] && [ -d "$SCRIPT_DIR/.git" ]; then
+    (
+      cd "$SCRIPT_DIR"
+      git add -A
+      git -c user.email="setup@agent-admin-template.local" -c user.name="agent-admin-template" \
+        commit -q -m "chore: initial agent scaffold from agent-admin-template"
+    )
+    echo "  ✓ initial commit on ${AGENT_NAME}/live"
+  fi
+
+  if [ "$IN_PLACE" != true ]; then
+    echo ""
+    echo "═══════════════════════════════════════════════════"
+    echo " Your agent is ready at:"
+    echo "   $SCRIPT_DIR"
+    echo "═══════════════════════════════════════════════════"
+    echo ""
+    echo "Next steps:"
+    echo "  cd $SCRIPT_DIR"
+    echo "  claude                            # start the agent"
+    echo "  ./setup.sh --regenerate           # after editing agent.yml"
+    echo "  ./setup.sh --uninstall            # undo install"
+    echo ""
+    echo "The installer clone ($src_dir) is no longer needed and can be deleted."
+  fi
+}
+
+# Copy system files to the destination, move agent.yml/.env, chdir, git init.
+# If IN_PLACE=true or destination == SCRIPT_DIR, skip (user chose in-place mode).
+scaffold_destination() {
+  local src_dir="$SCRIPT_DIR"
+  local agent_yml="$SCRIPT_DIR/agent.yml"
+  local env_file="$SCRIPT_DIR/.env"
+
+  # Resolve destination from agent.yml
+  local dest
+  dest=$(yq '.deployment.workspace' "$agent_yml")
+  # Expand $HOME / ~
+  dest=$(eval echo "$dest")
+
+  if [ "$IN_PLACE" = true ]; then
+    echo "▸ --in-place mode: skipping destination scaffold"
+    return 0
+  fi
+
+  if [ "$dest" = "$src_dir" ]; then
+    echo "▸ Destination equals current directory: running in-place"
+    return 0
+  fi
+
+  # Safety: never scaffold to $HOME itself
+  if [ "$dest" = "$HOME" ]; then
+    echo "ERROR: destination cannot be \$HOME itself ($HOME)" >&2
+    echo "       Choose a subdirectory like \$HOME/Claude/Agents/{agent-name}" >&2
+    exit 1
+  fi
+
+  # Safety: destination must not already exist
+  if [ -e "$dest" ]; then
+    echo "ERROR: destination already exists: $dest" >&2
+    echo "       Choose a fresh path, or remove the existing one first." >&2
+    exit 1
+  fi
+
+  echo ""
+  echo "▸ Scaffolding destination: $dest"
+  mkdir -p "$dest"
+
+  # Copy system files (installer → destination)
+  local item
+  for item in setup.sh .gitignore LICENSE; do
+    [ -e "$src_dir/$item" ] && cp "$src_dir/$item" "$dest/"
+  done
+  for item in modules scripts; do
+    [ -d "$src_dir/$item" ] && cp -R "$src_dir/$item" "$dest/"
+  done
+  # Ensure setup.sh is executable
+  chmod +x "$dest/setup.sh"
+  find "$dest/scripts" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+
+  # Move agent.yml + .env (transactional: copy, verify, delete source)
+  cp "$agent_yml" "$dest/agent.yml" && [ -f "$dest/agent.yml" ] && rm "$agent_yml"
+  if [ -f "$env_file" ]; then
+    cp "$env_file" "$dest/.env" && [ -f "$dest/.env" ] && rm "$env_file"
+  fi
+
+  echo "  ✓ system files copied"
+  echo "  ✓ agent.yml and .env moved"
+
+  # Git init with {agent-name}/live branch
+  local agent_name_for_branch
+  agent_name_for_branch=$(yq '.agent.name' "$dest/agent.yml")
+  local branch="${agent_name_for_branch}/live"
+  (
+    cd "$dest"
+    git init -b "$branch" -q 2>/dev/null || git init -q  # older git may not support -b
+    if [ "$(git symbolic-ref --short HEAD 2>/dev/null)" != "$branch" ]; then
+      git checkout -b "$branch" -q 2>/dev/null || true
+    fi
+  )
+  echo "  ✓ git init (branch: $branch)"
+
+  # Redirect all subsequent operations to $dest
+  SCRIPT_DIR="$dest"
+  cd "$dest"
 }
 
 regenerate() {
@@ -281,6 +400,23 @@ regenerate() {
 
   echo "▸ Loading context from agent.yml"
   render_load_context "$agent_yml"
+
+  # Warn if agent.yml workspace differs from current directory (post-scaffold)
+  local yml_workspace
+  yml_workspace=$(eval echo "${DEPLOYMENT_WORKSPACE:-}")
+  local current_dir
+  current_dir=$(cd "$SCRIPT_DIR" && pwd)
+  local yml_resolved
+  yml_resolved=$(cd "$yml_workspace" 2>/dev/null && pwd || echo "$yml_workspace")
+
+  if [ "$IN_PLACE" != true ] && [ -f "$SCRIPT_DIR/agent.yml" ] && [ -n "$yml_workspace" ] && [ "$yml_resolved" != "$current_dir" ]; then
+    echo ""
+    echo "WARNING: agent.yml's deployment.workspace ($yml_workspace) differs from the"
+    echo "         current directory ($current_dir). The workspace field is fixed at"
+    echo "         scaffold time; regenerate does NOT relocate files. If you want to"
+    echo "         move the agent, uninstall here and re-run the installer."
+    echo ""
+  fi
 
   # Derived env vars not in YAML
   export HOME_DIR="$HOME"

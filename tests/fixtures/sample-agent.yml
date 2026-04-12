@@ -1,0 +1,21 @@
+version: 1
+agent:
+  name: test-agent
+  display_name: "TestAgent 🤖"
+user:
+  name: "Alice Example"
+  nickname: "Alice"
+features:
+  heartbeat:
+    enabled: true
+    interval: "15m"
+mcps:
+  atlassian:
+    - name: work
+      url: "https://work.atlassian.net"
+      email: "alice@work.com"
+    - name: personal
+      url: "https://personal.atlassian.net"
+      email: "alice@personal.com"
+  github:
+    enabled: false

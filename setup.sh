@@ -225,7 +225,7 @@ run_wizard() {
   echo "    - pull template improvements later via ./setup.sh --sync-template"
   echo ""
   local fork_enabled fork_owner="" fork_name="" fork_private="true" fork_token=""
-  local template_url="https://github.com/rodrigo-hinojosa/agent-admin-template"
+  local template_url="https://github.com/rodrigo-hinojosa-labs/agent-admin-template"
   fork_enabled=$(ask_yn "Create a GitHub fork for this agent?" "y")
   if [ "$fork_enabled" = "true" ]; then
     if ! command -v gh &>/dev/null; then
@@ -236,7 +236,7 @@ run_wizard() {
     host_lc=$(echo "$deploy_host" | tr '[:upper:]' '[:lower:]')
     agent_lc=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
     default_fork="${agent_lc}-${host_lc}"
-    fork_owner=$(ask_required "GitHub username (owner of the fork)")
+    fork_owner=$(ask "Fork owner (user or org)" "rodri-agents")
     fork_name=$(ask "Fork repo name" "$default_fork")
     fork_private=$(ask_yn "Make the fork private? (recommended)" "y")
     template_url=$(ask "Template repo URL" "$template_url")
@@ -568,10 +568,19 @@ scaffold_with_fork() {
   token=""
   [ -f "$dest/.env" ] && token=$(grep -E '^GITHUB_FORK_PAT=' "$dest/.env" | cut -d= -f2- || true)
 
+  # Detect if fork_owner is an org (different from the authenticated user).
+  # GitHub forbids same-user parent+fork, so we must forward --org when the
+  # fork target is different from the PAT's user.
+  local gh_user org_flag=""
+  gh_user=$(GH_TOKEN="$token" gh api user --jq .login 2>/dev/null || echo "")
+  if [ -n "$gh_user" ] && [ "$gh_user" != "$fork_owner" ]; then
+    org_flag="--org $fork_owner"
+  fi
+
   echo "  ▸ Creating fork ${fork_owner}/${fork_name} from ${template_url}..."
   local fork_stderr
   fork_stderr=$(GH_TOKEN="$token" gh repo fork "$template_url" \
-    --fork-name "$fork_name" --default-branch-only --clone=false 2>&1 >/dev/null) || {
+    --fork-name "$fork_name" --default-branch-only --clone=false $org_flag 2>&1 >/dev/null) || {
     if echo "$fork_stderr" | grep -qiE "already exists|name already"; then
       echo "  ✓ fork already exists — reusing"
     else

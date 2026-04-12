@@ -29,6 +29,7 @@ a@b.com
 en
 host
 n
+n
 none
 n
 n
@@ -68,6 +69,7 @@ a@b.com
 en
 host
 $TMP_TEST_DIR/whatever
+n
 n
 none
 n

@@ -41,9 +41,18 @@ yaml_array_item() {
 # yaml_require_yq — fails if yq is not installed
 yaml_require_yq() {
   if ! command -v yq &>/dev/null; then
+    local arch yq_arch
+    arch=$(uname -m 2>/dev/null || echo "")
+    case "$arch" in
+      x86_64|amd64)   yq_arch="amd64" ;;
+      aarch64|arm64)  yq_arch="arm64" ;;
+      armv7l|armv6l)  yq_arch="arm" ;;
+      i386|i686)      yq_arch="386" ;;
+      *)              yq_arch="amd64" ;;
+    esac
     echo "ERROR: yq is required. Install with:" >&2
     echo "  macOS: brew install yq" >&2
-    echo "  Linux: sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq" >&2
+    echo "  Linux (${arch:-unknown} → ${yq_arch}): sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${yq_arch} && sudo chmod +x /usr/local/bin/yq" >&2
     return 1
   fi
 }

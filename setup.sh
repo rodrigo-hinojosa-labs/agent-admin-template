@@ -558,7 +558,16 @@ scaffold_with_fork() {
     git init -q
     git remote add origin "git@github.com:${fork_owner}/${fork_name}.git"
     git remote add upstream "${template_url}.git"
-    git checkout -b "$branch" -q
+    # Fetch main from the fork so the live branch has shared history with
+    # upstream. Required for --sync-template to rebase cleanly.
+    if git fetch origin main --depth=1 -q 2>/dev/null; then
+      git branch main FETCH_HEAD
+      git checkout -b "$branch" main -q
+    else
+      echo "  ⚠ could not fetch origin/main (fork may still be initializing)"
+      echo "    falling back to orphan live branch — sync-template may need manual fixup"
+      git checkout -b "$branch" -q
+    fi
   )
   yq -i ".scaffold.fork.url = \"${fork_url}\"" "$dest/agent.yml"
 

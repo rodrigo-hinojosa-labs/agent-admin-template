@@ -258,8 +258,9 @@ EOF
   echo ""
   echo "✓ agent.yml and .env written"
   echo ""
-  echo "NOTE: the file regeneration (CLAUDE.md, .mcp.json, services, etc.)"
-  echo "      will be implemented in Task 11. For now, agent.yml + .env are written."
+
+  # Chain into regeneration so the user ends the wizard with a working agent.
+  regenerate
 }
 
 regenerate() {

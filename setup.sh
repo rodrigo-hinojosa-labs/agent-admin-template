@@ -159,6 +159,13 @@ run_wizard() {
   echo "▸ Agent identity"
   local agent_name agent_display agent_role agent_vibe
   agent_name=$(ask "Agent name (lowercase, no spaces)" "my-agent")
+  # Force lowercase + strip spaces — used for filenames, branches, service
+  # names. If the user typed otherwise, normalize silently and show it back.
+  local agent_name_raw="$agent_name"
+  agent_name=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+  if [ "$agent_name" != "$agent_name_raw" ]; then
+    echo "  ↳ normalized to: $agent_name"
+  fi
   agent_display=$(ask "Display name (with emoji)" "MyAgent 🤖")
   agent_role=$(ask "Role description" "Admin assistant for my ecosystem")
   agent_vibe=$(ask "Vibe / personality (one line)" "Direct, useful, no drama")

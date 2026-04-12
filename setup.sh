@@ -198,6 +198,34 @@ run_wizard() {
   deploy_svc=$(ask_yn "Install as system service?" "y")
   echo ""
 
+  # ── 3.5 GitHub fork (template sync) ─────────────────
+  echo "▸ GitHub fork (template sync)"
+  echo "  Creating a fork lets you:"
+  echo "    - push this agent to its own GitHub repo"
+  echo "    - pull template improvements later via ./setup.sh --sync-template"
+  echo ""
+  local fork_enabled fork_name="" fork_private="true"
+  local template_url="https://github.com/rodrigo-hinojosa/agent-admin-template"
+  fork_enabled=$(ask_yn "Create a GitHub fork for this agent?" "y")
+  if [ "$fork_enabled" = "true" ]; then
+    if ! command -v gh &>/dev/null; then
+      echo "  ✗ gh CLI not found — install it first: https://cli.github.com/"
+      exit 1
+    fi
+    if ! gh auth status &>/dev/null; then
+      echo "  ✗ gh not authenticated — run 'gh auth login' first"
+      exit 1
+    fi
+    local host_lc agent_lc default_fork
+    host_lc=$(echo "$deploy_host" | tr '[:upper:]' '[:lower:]')
+    agent_lc=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
+    default_fork="${agent_lc}-${host_lc}"
+    fork_name=$(ask "Fork repo name" "$default_fork")
+    fork_private=$(ask_yn "Make the fork private? (recommended)" "y")
+    template_url=$(ask "Template repo URL" "$template_url")
+  fi
+  echo ""
+
   # ── 4. Heartbeat notifications ──────────────────────
   echo "▸ Heartbeat notifications"
   echo "  When the heartbeat runs, where should it report status?"
@@ -305,6 +333,12 @@ run_wizard() {
     [ "$hb_enabled" = "true" ] && echo " 15) Heartbeat interval: $hb_interval"
     [ "$hb_enabled" = "true" ] && echo " 16) Heartbeat prompt:   $hb_prompt"
     echo " 17) Default princ:     $use_defaults"
+    echo " 18) GitHub fork:       $fork_enabled"
+    if [ "$fork_enabled" = "true" ]; then
+      echo " 19) Fork name:         $fork_name"
+      echo " 20) Fork private:      $fork_private"
+      echo " 21) Template URL:      $template_url"
+    fi
     echo ""
     echo "  Atlassian:       $([ -n "$atlassian_entries" ] && echo "configured" || echo "disabled")"
     echo "  GitHub MCP:      $github_enabled"
@@ -339,6 +373,10 @@ run_wizard() {
           15) hb_interval=$(ask "Heartbeat interval" "$hb_interval") ;;
           16) hb_prompt=$(ask "Heartbeat default prompt" "$hb_prompt") ;;
           17) use_defaults=$(ask_yn "Use default principles?" "$([ "$use_defaults" = true ] && echo y || echo n)") ;;
+          18) fork_enabled=$(ask_yn "Create a GitHub fork?" "$([ "$fork_enabled" = true ] && echo y || echo n)") ;;
+          19) fork_name=$(ask "Fork repo name" "$fork_name") ;;
+          20) fork_private=$(ask_yn "Make the fork private?" "$([ "$fork_private" = true ] && echo y || echo n)") ;;
+          21) template_url=$(ask "Template repo URL" "$template_url") ;;
           *) echo "  Invalid field: $field" ;;
         esac
         ;;
@@ -384,6 +422,14 @@ deployment:
   host: "$deploy_host"
   workspace: "$deploy_ws"
   install_service: $deploy_svc
+
+scaffold:
+  template_url: "$template_url"
+  fork:
+    enabled: $fork_enabled
+    name: "$fork_name"
+    private: $fork_private
+    url: ""
 
 notifications:
   channel: $notify_channel

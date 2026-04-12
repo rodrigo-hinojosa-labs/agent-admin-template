@@ -6,7 +6,87 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/scripts/lib/yaml.sh"
 source "$SCRIPT_DIR/scripts/lib/render.sh"
-source "$SCRIPT_DIR/scripts/lib/wizard.sh"
+
+GUM=""  # populated by ensure_gum
+
+# Ensure gum is available. Returns 0 if found or downloaded; 1 otherwise.
+# On success, $GUM points to a usable gum binary.
+ensure_gum() {
+  # 1. Prefer an already-installed gum on PATH.
+  if command -v gum &>/dev/null; then
+    GUM="gum"
+    return 0
+  fi
+
+  # 2. Check vendor dir (previous auto-download).
+  local vendor_bin="$SCRIPT_DIR/scripts/vendor/bin/gum"
+  if [ -x "$vendor_bin" ]; then
+    GUM="$vendor_bin"
+    return 0
+  fi
+
+  # 3. Auto-download from GitHub releases.
+  local version="0.14.5"
+  local os arch
+  os=$(uname -s | tr '[:upper:]' '[:lower:]')
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64) arch="x86_64" ;;
+    arm64|aarch64) arch="arm64" ;;
+    *)
+      echo "WARN: gum auto-download not supported for arch '$arch'; falling back to plain wizard." >&2
+      return 1
+      ;;
+  esac
+  case "$os" in
+    darwin|linux) ;;
+    *)
+      echo "WARN: gum auto-download not supported for OS '$os'; falling back to plain wizard." >&2
+      return 1
+      ;;
+  esac
+
+  local pkg="gum_${version}_${os}_${arch}"
+  local url="https://github.com/charmbracelet/gum/releases/download/v${version}/${pkg}.tar.gz"
+  local vendor_dir="$SCRIPT_DIR/scripts/vendor/bin"
+
+  mkdir -p "$vendor_dir"
+  echo "▸ Bootstrapping gum v${version} (one-time, ~5MB)..." >&2
+  if ! curl -sL --fail "$url" -o "$vendor_dir/gum.tar.gz" 2>/dev/null; then
+    echo "WARN: gum download failed; falling back to plain wizard." >&2
+    rm -f "$vendor_dir/gum.tar.gz"
+    return 1
+  fi
+  # Extract just the gum binary (inside pkg dir)
+  tar -xzf "$vendor_dir/gum.tar.gz" -C "$vendor_dir" --strip-components=1 "${pkg}/gum" 2>/dev/null || {
+    # Fallback: extract all, then move
+    tar -xzf "$vendor_dir/gum.tar.gz" -C "$vendor_dir"
+    if [ -f "$vendor_dir/${pkg}/gum" ]; then
+      mv "$vendor_dir/${pkg}/gum" "$vendor_dir/gum"
+      rm -rf "$vendor_dir/${pkg}"
+    fi
+  }
+  rm -f "$vendor_dir/gum.tar.gz"
+
+  if [ -x "$vendor_dir/gum" ]; then
+    GUM="$vendor_dir/gum"
+    echo "  ✓ gum installed at $vendor_dir/gum" >&2
+    return 0
+  fi
+  echo "WARN: gum extraction failed; falling back to plain wizard." >&2
+  return 1
+}
+
+# Decide which wizard helper set to load. Prefer gum when:
+# - stdin is a TTY (interactive user, not piped test input)
+# - and gum can be installed/found
+load_wizard_helpers() {
+  if [ -t 0 ] && ensure_gum; then
+    source "$SCRIPT_DIR/scripts/lib/wizard-gum.sh"
+  else
+    source "$SCRIPT_DIR/scripts/lib/wizard.sh"
+  fi
+}
 
 MODE="auto"
 FORCE_CLAUDE_MD=false
@@ -201,26 +281,68 @@ run_wizard() {
   use_defaults=$(ask_yn "Use default opinionated agent principles? (recommended)" "y")
   echo ""
 
-  # ── Summary ─────────────────────────────────────────
-  echo "═══════════════════════════════════════════════════"
-  echo " Summary"
-  echo "═══════════════════════════════════════════════════"
-  echo "  Agent:           $agent_display ($agent_name)"
-  echo "  User:            $user_name (\"$user_nick\")"
-  echo "  Timezone:        $user_tz"
-  echo "  Workspace:       $deploy_ws"
-  echo "  Service:         $deploy_svc"
-  echo "  Heartbeat notif: $notify_channel"
-  echo "  Heartbeat:       $hb_enabled (interval: $hb_interval)"
-  echo "  Atlassian:       $([ -n "$atlassian_entries" ] && echo "configured" || echo "disabled")"
-  echo "  GitHub MCP:      $github_enabled"
-  echo "  Default princ.:  $use_defaults"
-  echo ""
+  # ── Review loop ──────────────────────────────────────
+  while true; do
+    echo ""
+    echo "═══════════════════════════════════════════════════"
+    echo " Summary"
+    echo "═══════════════════════════════════════════════════"
+    echo "  1) Agent name:        $agent_name"
+    echo "  2) Display name:      $agent_display"
+    echo "  3) Role:              $agent_role"
+    echo "  4) Vibe:              $agent_vibe"
+    echo "  5) User name:         $user_name"
+    echo "  6) Nickname:          $user_nick"
+    echo "  7) Timezone:          $user_tz"
+    echo "  8) Email:             $user_email"
+    echo "  9) Language:          $user_lang"
+    echo " 10) Host:              $deploy_host"
+    echo " 11) Destination:       $deploy_ws"
+    echo " 12) Install service:   $deploy_svc"
+    echo " 13) Heartbeat notif:   $notify_channel"
+    echo " 14) Heartbeat enabled: $hb_enabled"
+    [ "$hb_enabled" = "true" ] && echo " 15) Heartbeat interval: $hb_interval"
+    [ "$hb_enabled" = "true" ] && echo " 16) Heartbeat prompt:   $hb_prompt"
+    echo " 17) Default princ:     $use_defaults"
+    echo ""
+    echo "  Atlassian:       $([ -n "$atlassian_entries" ] && echo "configured" || echo "disabled")"
+    echo "  GitHub MCP:      $github_enabled"
+    echo ""
 
-  if [ "$(ask_yn 'Proceed?' 'y')" = "false" ]; then
-    echo "Aborted."
-    exit 0
-  fi
+    local action
+    action=$(ask_choice "Action" "proceed" "proceed edit abort")
+    case "$action" in
+      proceed) break ;;
+      abort)
+        echo "Aborted."
+        exit 0
+        ;;
+      edit)
+        local field
+        field=$(ask "Edit which field number?" "1")
+        case "$field" in
+          1) agent_name=$(ask "Agent name (lowercase, no spaces)" "$agent_name") ;;
+          2) agent_display=$(ask "Display name (with emoji)" "$agent_display") ;;
+          3) agent_role=$(ask "Role description" "$agent_role") ;;
+          4) agent_vibe=$(ask "Vibe / personality (one line)" "$agent_vibe") ;;
+          5) user_name=$(ask "Your full name" "$user_name") ;;
+          6) user_nick=$(ask "Nickname" "$user_nick") ;;
+          7) user_tz=$(ask "Timezone" "$user_tz") ;;
+          8) user_email=$(ask "Primary email" "$user_email") ;;
+          9) user_lang=$(ask_choice "Preferred language" "$user_lang" "es en mixed") ;;
+          10) deploy_host=$(ask "Host machine name" "$deploy_host") ;;
+          11) deploy_ws=$(ask "Agent destination directory" "$deploy_ws") ;;
+          12) deploy_svc=$(ask_yn "Install as system service?" "$([ "$deploy_svc" = true ] && echo y || echo n)") ;;
+          13) notify_channel=$(ask_choice "Heartbeat notification channel" "$notify_channel" "none log telegram") ;;
+          14) hb_enabled=$(ask_yn "Enable heartbeat?" "$([ "$hb_enabled" = true ] && echo y || echo n)") ;;
+          15) hb_interval=$(ask "Heartbeat interval" "$hb_interval") ;;
+          16) hb_prompt=$(ask "Heartbeat default prompt" "$hb_prompt") ;;
+          17) use_defaults=$(ask_yn "Use default principles?" "$([ "$use_defaults" = true ] && echo y || echo n)") ;;
+          *) echo "  Invalid field: $field" ;;
+        esac
+        ;;
+    esac
+  done
 
   # ── Build YAML fragments before the heredoc ─────────
   local atlassian_yaml plugins_yaml
@@ -721,6 +843,7 @@ uninstall() {
 main() {
   parse_args "$@"
   yaml_require_yq || exit 1
+  load_wizard_helpers
 
   local agent_yml="$SCRIPT_DIR/agent.yml"
 

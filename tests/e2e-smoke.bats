@@ -56,7 +56,7 @@ y
 30m
 Test prompt
 y
-y
+proceed
 EOF
   [ "$status" -eq 0 ]
 

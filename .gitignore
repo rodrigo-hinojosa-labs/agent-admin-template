@@ -8,6 +8,9 @@
 /scripts/heartbeat/logs/
 /scripts/heartbeat/heartbeat.conf
 
+# Auto-downloaded dependencies
+/scripts/vendor/bin/
+
 # Tooling
 node_modules/
 .DS_Store

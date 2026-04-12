@@ -96,6 +96,14 @@ cd <destination>
 ./setup.sh --uninstall --nuke     # everything above + delete the workspace dir itself
 ```
 
+## Interactive wizard
+
+The wizard uses [`gum`](https://github.com/charmbracelet/gum) for arrow-key-capable prompts (edit text with left/right, select options with up/down). On first run, `setup.sh` auto-downloads gum to `scripts/vendor/bin/gum` (gitignored, ~5MB, one-time).
+
+If you're running in a non-interactive shell (CI, piped stdin), the wizard falls back to plain `read` prompts — no gum needed.
+
+After filling in all answers, the summary screen shows every choice numbered. Pick **edit** to jump back and change a specific field without re-answering everything, **proceed** to continue, or **abort** to cancel.
+
 ## Requirements
 
 - bash 4+
@@ -104,6 +112,7 @@ cd <destination>
 - `tmux`
 - `jq` (for JSON validation in tests)
 - `git` (for scaffold's git init)
+- `curl` and `tar` (for the gum bootstrap on first run — already present on macOS/Linux)
 - `systemd` (Linux) or `launchd` (macOS) if you want the service to auto-start
 
 ## File ownership

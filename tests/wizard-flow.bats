@@ -35,7 +35,7 @@ y
 15m
 Check status
 y
-y
+proceed
 EOF
   [ "$status" -eq 0 ]
   [ ! -f agent.yml ]  # should be MOVED to destination

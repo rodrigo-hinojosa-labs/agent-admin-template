@@ -41,7 +41,7 @@ y
 30m
 ok
 y
-y
+proceed
 EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Telegram credentials incomplete"* ]]

@@ -36,7 +36,7 @@ y
 30m
 ok
 y
-y
+proceed
 EOF
 }
 
@@ -76,7 +76,7 @@ y
 30m
 ok
 y
-y
+proceed
 EOF
   [ "$status" -eq 0 ]
   [ -f "$TMP_TEST_DIR/installer/agent.yml" ]

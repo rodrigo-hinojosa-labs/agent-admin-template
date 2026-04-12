@@ -478,10 +478,8 @@ uninstall() {
     darwin)
       local plist="$HOME/Library/LaunchAgents/local.${agent_name}.plist"
       local hb_plist="$HOME/Library/LaunchAgents/local.${agent_name}-heartbeat.plist"
-      # Legacy prefix from early rodri-agent-admin forks — clean up if present.
-      local legacy_hb_plist="$HOME/Library/LaunchAgents/cloud.rodribot.${agent_name}-heartbeat.plist"
 
-      for p in "$plist" "$hb_plist" "$legacy_hb_plist"; do
+      for p in "$plist" "$hb_plist"; do
         [ -f "$p" ] || continue
         launchctl bootout "gui/$(id -u)" "$p" 2>/dev/null || \
           launchctl unload "$p" 2>/dev/null || true
@@ -491,7 +489,7 @@ uninstall() {
       echo ""
       echo "▸ Removing files"
       rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
-      for p in "$plist" "$hb_plist" "$legacy_hb_plist"; do
+      for p in "$plist" "$hb_plist"; do
         [ -f "$p" ] && rm -f "$p" && echo "  ✓ $p" || true
       done
       rm -rf "$HOME/.local/share/${agent_name}" 2>/dev/null && echo "  ✓ ~/.local/share/${agent_name}/" || true

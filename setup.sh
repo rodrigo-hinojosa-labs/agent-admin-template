@@ -240,7 +240,7 @@ run_wizard() {
       local ws_name ws_url ws_email ws_token
       ws_name=$(ask "Workspace name (e.g. personal, work)" "personal")
       ws_url=$(ask_required "Atlassian URL (e.g. https://yourco.atlassian.net)")
-      ws_email=$(ask_required "Email")
+      ws_email=$(ask "Email" "$user_email")
       ws_token=$(ask_secret "API token")
       atlassian_entries="${atlassian_entries}  - name: ${ws_name}
     url: \"${ws_url}\"

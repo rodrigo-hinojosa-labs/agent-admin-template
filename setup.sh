@@ -204,7 +204,7 @@ run_wizard() {
   echo "    - push this agent to its own GitHub repo"
   echo "    - pull template improvements later via ./setup.sh --sync-template"
   echo ""
-  local fork_enabled fork_name="" fork_private="true"
+  local fork_enabled fork_owner="" fork_name="" fork_private="true" fork_token=""
   local template_url="https://github.com/rodrigo-hinojosa/agent-admin-template"
   fork_enabled=$(ask_yn "Create a GitHub fork for this agent?" "y")
   if [ "$fork_enabled" = "true" ]; then
@@ -212,17 +212,16 @@ run_wizard() {
       echo "  ✗ gh CLI not found — install it first: https://cli.github.com/"
       exit 1
     fi
-    if ! gh auth status &>/dev/null; then
-      echo "  ✗ gh not authenticated — run 'gh auth login' first"
-      exit 1
-    fi
     local host_lc agent_lc default_fork
     host_lc=$(echo "$deploy_host" | tr '[:upper:]' '[:lower:]')
     agent_lc=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
     default_fork="${agent_lc}-${host_lc}"
+    fork_owner=$(ask_required "GitHub username (owner of the fork)")
     fork_name=$(ask "Fork repo name" "$default_fork")
     fork_private=$(ask_yn "Make the fork private? (recommended)" "y")
     template_url=$(ask "Template repo URL" "$template_url")
+    echo "  PAT needs 'repo' scope (and 'delete_repo' if you'll use --delete-fork)."
+    fork_token=$(ask_secret "GitHub Personal Access Token for fork")
   fi
   echo ""
 
@@ -335,9 +334,11 @@ run_wizard() {
     echo " 17) Default princ:     $use_defaults"
     echo " 18) GitHub fork:       $fork_enabled"
     if [ "$fork_enabled" = "true" ]; then
-      echo " 19) Fork name:         $fork_name"
-      echo " 20) Fork private:      $fork_private"
-      echo " 21) Template URL:      $template_url"
+      echo " 19) Fork owner:        $fork_owner"
+      echo " 20) Fork name:         $fork_name"
+      echo " 21) Fork private:      $fork_private"
+      echo " 22) Template URL:      $template_url"
+      echo " 23) Fork PAT:          $([ -n "$fork_token" ] && echo "********" || echo "(unset)")"
     fi
     echo ""
     echo "  Atlassian:       $([ -n "$atlassian_entries" ] && echo "configured" || echo "disabled")"
@@ -374,9 +375,11 @@ run_wizard() {
           16) hb_prompt=$(ask "Heartbeat default prompt" "$hb_prompt") ;;
           17) use_defaults=$(ask_yn "Use default principles?" "$([ "$use_defaults" = true ] && echo y || echo n)") ;;
           18) fork_enabled=$(ask_yn "Create a GitHub fork?" "$([ "$fork_enabled" = true ] && echo y || echo n)") ;;
-          19) fork_name=$(ask "Fork repo name" "$fork_name") ;;
-          20) fork_private=$(ask_yn "Make the fork private?" "$([ "$fork_private" = true ] && echo y || echo n)") ;;
-          21) template_url=$(ask "Template repo URL" "$template_url") ;;
+          19) fork_owner=$(ask "GitHub username (owner of the fork)" "$fork_owner") ;;
+          20) fork_name=$(ask "Fork repo name" "$fork_name") ;;
+          21) fork_private=$(ask_yn "Make the fork private?" "$([ "$fork_private" = true ] && echo y || echo n)") ;;
+          22) template_url=$(ask "Template repo URL" "$template_url") ;;
+          23) fork_token=$(ask_secret "GitHub Personal Access Token for fork") ;;
           *) echo "  Invalid field: $field" ;;
         esac
         ;;
@@ -427,6 +430,7 @@ scaffold:
   template_url: "$template_url"
   fork:
     enabled: $fork_enabled
+    owner: "$fork_owner"
     name: "$fork_name"
     private: $fork_private
     url: ""
@@ -470,6 +474,7 @@ EOF
   fi
   [ -n "$atlassian_env_vars" ] && echo "$atlassian_env_vars" >> "$env_file"
   [ "$github_enabled" = "true" ] && echo "GITHUB_PAT=$github_pat" >> "$env_file"
+  [ "$fork_enabled" = "true" ] && [ -n "$fork_token" ] && echo "GITHUB_FORK_PAT=$fork_token" >> "$env_file"
 
   echo ""
   echo "✓ agent.yml and .env written"

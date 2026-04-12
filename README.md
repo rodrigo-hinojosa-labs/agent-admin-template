@@ -66,6 +66,8 @@ rm -rf /tmp/agent-installer    # delete the installer clone if you're done with 
 | `--purge` | With `--uninstall`, also remove `agent.yml` and `.env`. |
 | `--nuke` | With `--uninstall`, also remove the workspace directory itself (and its parent if left empty). Implies `--purge`. |
 | `--yes` / `-y` | With `--uninstall`, skip the confirmation prompt. |
+| `--sync-template` | Pull upstream template improvements into the fork: fetch `upstream/main`, fast-forward local `main`, push to `origin`, rebase the live branch. Fork-based agents only. |
+| `--delete-fork` | With `--uninstall`, also delete the GitHub fork (irreversible). Requires `--yes`. PAT needs `delete_repo` scope. |
 | `--help` / `-h` | Show the usage message. |
 
 ## Lifecycle
@@ -94,6 +96,31 @@ cd <destination>
 ./setup.sh --uninstall            # stop services, remove generated files (keeps agent.yml + .env)
 ./setup.sh --uninstall --purge    # also remove agent.yml + .env
 ./setup.sh --uninstall --nuke     # everything above + delete the workspace dir itself
+./setup.sh --uninstall --nuke --delete-fork --yes   # full teardown incl. GitHub fork (irreversible)
+```
+
+## Fork-based workflow
+
+When the wizard creates a fork (default when you answer `Y` to *"Create a GitHub fork?"*), the destination is a git repo pointing at:
+
+- `origin` → your fork (e.g. `rodri-agents/<agent>-<host>`)
+- `upstream` → the template repo (e.g. `rodrigo-hinojosa-labs/agent-admin-template`)
+
+The live branch is named `<host>-<agent>-v<N>/live` (e.g. `ferrari-demo-1/live`). The number increments from existing `*-*-v*/live` branches on the fork so scaffolding the same agent on a new host gives you `v2`, `v3`, etc.
+
+### Pulling template improvements
+```bash
+cd <destination>
+./setup.sh --sync-template
+```
+This does: `git fetch upstream && git merge --ff-only upstream/main` on `main`, pushes `main` to `origin`, then `git rebase main` on the live branch. Aborts cleanly on any divergence or conflict with instructions to resolve.
+
+### Replicating an agent on another host
+```bash
+git clone https://github.com/<owner>/<fork>.git ~/Claude/Agents/<agent>
+cd ~/Claude/Agents/<agent>
+git checkout <branch>          # the *-v*/live branch you scaffolded
+./setup.sh --regenerate        # re-render derived files for this host
 ```
 
 ## Interactive wizard
@@ -112,6 +139,7 @@ After filling in all answers, the summary screen shows every choice numbered. Pi
 - `tmux`
 - `jq` (for JSON validation in tests)
 - `git` (for scaffold's git init)
+- [`gh`](https://cli.github.com/) CLI (only if you enable the GitHub fork flow — scaffold uses it for `repo fork`, `repo edit`, `api branches`, `repo delete`)
 - `curl` and `tar` (for the gum bootstrap on first run — already present on macOS/Linux)
 - `systemd` (Linux) or `launchd` (macOS) if you want the service to auto-start
 

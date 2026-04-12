@@ -29,6 +29,8 @@ EOF
   [ "$(echo "$result" | jq -r '.mcpServers.playwright.command')" = "npx" ]
   [ "$(echo "$result" | jq -r '.mcpServers.time.args[1]')" = "--local-timezone=America/Santiago" ]
   [ "$(echo "$result" | jq -r '.mcpServers["atlassian-personal"].env.CONFLUENCE_URL')" = "https://personal.atlassian.net/wiki" ]
+  [ "$(echo "$result" | jq -r '.mcpServers["atlassian-personal"].env.CONFLUENCE_API_TOKEN')" = '${ATLASSIAN_PERSONAL_TOKEN}' ]
+  [ "$(echo "$result" | jq -r '.mcpServers["atlassian-personal"].env.JIRA_API_TOKEN')" = '${ATLASSIAN_PERSONAL_TOKEN}' ]
   [ "$(echo "$result" | jq -r '.mcpServers.github // "absent"')" = "absent" ]
 }
 

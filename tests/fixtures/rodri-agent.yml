@@ -1,0 +1,39 @@
+version: 1
+agent:
+  name: rodri-agent
+  display_name: "RodriAgent 🤖"
+  role: "Administrador del ecosistema de Rodrigo"
+  vibe: "Directo, útil, sin drama"
+  use_default_principles: true
+user:
+  name: "Rodrigo Hinojosa"
+  nickname: "Rodri"
+  timezone: "America/Santiago"
+  email: "rodrigo.andres.hinojosa.acuna@gmail.com"
+  language: "mixed"
+deployment:
+  host: "ferrari"
+  workspace: "~/Claude/Agents/rodri-agent"
+  install_service: true
+notifications:
+  channel: telegram
+features:
+  heartbeat:
+    enabled: true
+    interval: "30m"
+    timeout: 300
+    retries: 1
+    default_prompt: "Check status and report"
+mcps:
+  atlassian:
+    - name: cencosud
+      url: "https://cencosud.atlassian.net"
+      email: "rodrigo.hinojosa@cencosud.cl"
+    - name: personal
+      url: "https://rodrigo-hinojosa.atlassian.net"
+      email: "rodrigo.andres.hinojosa.acuna@gmail.com"
+  github:
+    enabled: true
+plugins:
+  - telegram@claude-plugins-official
+  - claude-mem@thedotmack

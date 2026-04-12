@@ -22,10 +22,10 @@
       "env": {
         "CONFLUENCE_URL": "{{url}}/wiki",
         "CONFLUENCE_USERNAME": "{{email}}",
-        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_{{NAME_UPPER}}_TOKEN}",
+        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_{{NAME}}_TOKEN}",
         "JIRA_URL": "{{url}}",
         "JIRA_USERNAME": "{{email}}",
-        "JIRA_API_TOKEN": "${ATLASSIAN_{{NAME_UPPER}}_TOKEN}"
+        "JIRA_API_TOKEN": "${ATLASSIAN_{{NAME}}_TOKEN}"
       }
     }{{/each}}{{#if MCPS_GITHUB_ENABLED}},
     "github": {

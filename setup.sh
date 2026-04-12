@@ -116,9 +116,18 @@ run_wizard() {
   notify_channel=$(ask_choice "Notification channel" "none" "none log telegram")
   if [ "$notify_channel" = "telegram" ]; then
     echo "  Create a bot at @BotFather to get a token."
-    notify_bot_token=$(ask_required "Bot token")
-    echo "  Message @userinfobot to get your chat ID."
-    notify_chat_id=$(ask_required "Chat ID")
+    echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
+    notify_bot_token=$(ask_secret "Bot token (or skip)")
+    echo "  Message @userinfobot to get your chat ID (numeric)."
+    echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
+    notify_chat_id=$(ask "Chat ID (or skip)" "")
+    if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
+      echo ""
+      echo "  ⚠  Telegram credentials incomplete — notifications are disabled"
+      echo "     until you fill the missing value(s) in .env:"
+      [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
+      [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
+    fi
   fi
   echo ""
 

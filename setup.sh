@@ -104,6 +104,7 @@ load_wizard_helpers() {
 MODE="auto"
 FORCE_CLAUDE_MD=false
 UNINSTALL_PURGE=false
+UNINSTALL_DELETE_FORK=false
 UNINSTALL_YES=false
 UNINSTALL_NUKE=false
 DESTINATION=""
@@ -130,6 +131,10 @@ Options:
                        directory itself (and its parent if left empty).
                        Implies --purge.
   --yes                With --uninstall, skip the confirmation prompt.
+  --delete-fork        With --uninstall, also delete the GitHub fork created
+                       by the wizard. Requires --yes (the deletion is
+                       irreversible and affects other hosts cloned from it).
+                       Needs a PAT with delete_repo scope in .env.
   --destination PATH   (wizard only) Use PATH instead of prompting for the destination.
   --in-place           (wizard only) Skip scaffold — generate files in the current
                        directory (legacy behavior).
@@ -152,6 +157,7 @@ parse_args() {
       --uninstall) MODE="uninstall"; shift ;;
       --sync-template) MODE="sync-template"; shift ;;
       --purge) UNINSTALL_PURGE=true; shift ;;
+      --delete-fork) UNINSTALL_DELETE_FORK=true; shift ;;
       --nuke) UNINSTALL_NUKE=true; UNINSTALL_PURGE=true; shift ;;
       --yes|-y) UNINSTALL_YES=true; shift ;;
       --destination) DESTINATION="$2"; shift 2 ;;
@@ -1076,6 +1082,35 @@ uninstall() {
       rm -rf "$HOME/.local/share/${agent_name}" 2>/dev/null && echo "  ✓ ~/.local/share/${agent_name}/" || true
       ;;
   esac
+
+  # ── Delete the GitHub fork (opt-in, irreversible) ────────────────
+  if [ "$UNINSTALL_DELETE_FORK" = true ]; then
+    if [ "$UNINSTALL_YES" != true ]; then
+      echo "ERROR: --delete-fork requires --yes (the deletion is irreversible)." >&2
+      exit 1
+    fi
+    local fork_enabled fork_owner fork_name fork_token=""
+    fork_enabled=$(yq '.scaffold.fork.enabled // false' "$agent_yml")
+    if [ "$fork_enabled" != "true" ]; then
+      echo "⚠ --delete-fork ignored: agent was not scaffolded with a fork"
+    else
+      fork_owner=$(yq '.scaffold.fork.owner' "$agent_yml")
+      fork_name=$(yq '.scaffold.fork.name' "$agent_yml")
+      [ -f "$env_file" ] && fork_token=$(grep -E '^GITHUB_FORK_PAT=' "$env_file" | cut -d= -f2- || true)
+      if [ -z "$fork_token" ]; then
+        echo "⚠ GITHUB_FORK_PAT missing from .env — cannot delete the fork automatically"
+        echo "  Delete it manually at https://github.com/${fork_owner}/${fork_name}/settings"
+      else
+        echo ""
+        echo "▸ Deleting GitHub fork ${fork_owner}/${fork_name}..."
+        if GH_TOKEN="$fork_token" gh repo delete "${fork_owner}/${fork_name}" --yes >/dev/null 2>&1; then
+          echo "  ✓ fork deleted"
+        else
+          echo "  ✗ fork deletion failed (PAT needs delete_repo scope)" >&2
+        fi
+      fi
+    fi
+  fi
 
   echo ""
   echo "▸ Removing generated repo files"

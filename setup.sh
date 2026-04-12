@@ -571,10 +571,18 @@ scaffold_with_fork() {
   [ "$fork_private" = "true" ] && priv_flag="--private"
 
   echo "  ▸ Creating fork ${fork_owner}/${fork_name} from ${template_url}..."
-  if ! GH_TOKEN="$token" gh repo fork "$template_url" \
-       --fork-name "$fork_name" --default-branch-only --clone=false $priv_flag >/dev/null 2>&1; then
-    echo "  ⚠ fork creation returned non-zero (may already exist) — continuing"
-  fi
+  local fork_stderr
+  fork_stderr=$(GH_TOKEN="$token" gh repo fork "$template_url" \
+    --fork-name "$fork_name" --default-branch-only --clone=false $priv_flag 2>&1 >/dev/null) || {
+    if echo "$fork_stderr" | grep -qiE "already exists|name already"; then
+      echo "  ✓ fork already exists — reusing"
+    else
+      echo "  ✗ fork creation failed:" >&2
+      echo "$fork_stderr" | sed 's/^/    /' >&2
+      exit 1
+    fi
+  }
+  [ -n "${fork_stderr:-}" ] || echo "  ✓ fork created"
 
   # Query existing branches to compute next version. Retry because newly
   # created forks may not be immediately queryable.

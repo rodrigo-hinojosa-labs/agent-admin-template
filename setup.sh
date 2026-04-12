@@ -324,8 +324,7 @@ regenerate() {
 
   echo ""
   echo "✓ Regeneration complete."
-
-  maybe_install_plugins
+  maybe_print_plugin_hints
 }
 
 install_service() {
@@ -359,29 +358,21 @@ install_service() {
   esac
 }
 
-maybe_install_plugins() {
+# Print (do not execute) suggested plugin install commands so the user can run
+# them on their own terms.
+maybe_print_plugin_hints() {
   local agent_yml="$SCRIPT_DIR/agent.yml"
-  [ "$MODE" = "non-interactive" ] && return 0
-
   local plugin_count
   plugin_count=$(yq '.plugins | length' "$agent_yml" 2>/dev/null || echo 0)
   [ "$plugin_count" -le 0 ] && return 0
 
   echo ""
-  echo "▸ Suggested Claude Code plugins:"
+  echo "▸ Suggested Claude Code plugins (install at your discretion):"
   local i p
   for i in $(seq 0 $((plugin_count - 1))); do
     p=$(yq ".plugins[$i]" "$agent_yml")
-    echo "  - $p"
+    echo "    claude plugin install $p"
   done
-
-  if [ "$(ask_yn 'Install suggested plugins now?' 'y')" = "true" ]; then
-    for i in $(seq 0 $((plugin_count - 1))); do
-      p=$(yq ".plugins[$i]" "$agent_yml")
-      echo "  → claude plugin install $p"
-      claude plugin install "$p" || echo "    (failed, continue anyway)"
-    done
-  fi
 }
 
 main() {

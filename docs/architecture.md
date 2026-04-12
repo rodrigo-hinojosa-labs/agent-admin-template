@@ -53,5 +53,5 @@ user → setup.sh wizard → writes agent.yml + .env
 - `tests/setup.bats` + `tests/wizard-flow.bats` — setup.sh integration
 - `tests/claude-md.bats`, `mcp-json.bats`, `modules-render.bats` — per-module rendering
 - `tests/notifiers.bats` — heartbeat notifier drivers
-- `tests/regenerate.bats`, `tests/plugins.bats` — regenerate + plugin install flows
+- `tests/regenerate.bats` — regenerate flow
 - `tests/e2e-smoke.bats` — end-to-end wizard → functional agent

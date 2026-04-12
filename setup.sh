@@ -484,6 +484,7 @@ EOF
   scaffold_destination
   regenerate
 
+  local final_branch=""
   if [ "$IN_PLACE" != true ] && [ -d "$SCRIPT_DIR/.git" ]; then
     (
       cd "$SCRIPT_DIR"
@@ -491,7 +492,8 @@ EOF
       git -c user.email="setup@agent-admin-template.local" -c user.name="agent-admin-template" \
         commit -q -m "chore: initial agent scaffold from agent-admin-template"
     )
-    echo "  ✓ initial commit on ${AGENT_NAME}/live"
+    final_branch=$(cd "$SCRIPT_DIR" && git symbolic-ref --short HEAD 2>/dev/null || echo "unknown")
+    echo "  ✓ initial commit on $final_branch"
   fi
 
   if [ "$IN_PLACE" != true ]; then
@@ -503,12 +505,66 @@ EOF
     echo ""
     echo "Next steps:"
     echo "  cd $SCRIPT_DIR"
+    if [ "$fork_enabled" = "true" ] && [ -n "$final_branch" ]; then
+      echo "  git push -u origin $final_branch    # push to your fork"
+    fi
     echo "  claude                            # start the agent"
     echo "  ./setup.sh --regenerate           # after editing agent.yml"
     echo "  ./setup.sh --uninstall            # undo install"
     echo ""
     echo "The installer clone ($src_dir) is no longer needed and can be deleted."
   fi
+}
+
+# Fork the template on GitHub, init the destination git repo pointing at it,
+# and create a versioned live branch named {host}-{agent}-v{N}/live.
+# Requires gh CLI, a PAT in .env (GITHUB_FORK_PAT), and owner/name in agent.yml.
+scaffold_with_fork() {
+  local dest="$1" agent_lc="$2" host_lc="$3"
+  local fork_owner fork_name fork_private template_url token priv_flag
+  fork_owner=$(yq '.scaffold.fork.owner' "$dest/agent.yml")
+  fork_name=$(yq '.scaffold.fork.name' "$dest/agent.yml")
+  fork_private=$(yq '.scaffold.fork.private // true' "$dest/agent.yml")
+  template_url=$(yq '.scaffold.template_url' "$dest/agent.yml")
+  token=""
+  [ -f "$dest/.env" ] && token=$(grep -E '^GITHUB_FORK_PAT=' "$dest/.env" | cut -d= -f2- || true)
+  priv_flag=""
+  [ "$fork_private" = "true" ] && priv_flag="--private"
+
+  echo "  ▸ Creating fork ${fork_owner}/${fork_name} from ${template_url}..."
+  if ! GH_TOKEN="$token" gh repo fork "$template_url" \
+       --fork-name "$fork_name" --default-branch-only --clone=false $priv_flag >/dev/null 2>&1; then
+    echo "  ⚠ fork creation returned non-zero (may already exist) — continuing"
+  fi
+
+  # Query existing branches to compute next version. Retry because newly
+  # created forks may not be immediately queryable.
+  local existing_version="" attempt
+  for attempt in 1 2 3; do
+    existing_version=$(GH_TOKEN="$token" gh api \
+      "repos/${fork_owner}/${fork_name}/branches?per_page=100" --jq '.[].name' 2>/dev/null \
+      | grep -E "^${host_lc}-${agent_lc}-[0-9]+/live$" \
+      | sed -E "s|.*-([0-9]+)/live$|\1|" \
+      | sort -n | tail -1 || true)
+    [ $? -eq 0 ] && break
+    sleep 2
+  done
+  local version=$(( ${existing_version:-99} + 1 ))
+  local branch="${host_lc}-${agent_lc}-${version}/live"
+  local fork_url="https://github.com/${fork_owner}/${fork_name}"
+
+  (
+    cd "$dest"
+    git init -q
+    git remote add origin "git@github.com:${fork_owner}/${fork_name}.git"
+    git remote add upstream "${template_url}.git"
+    git checkout -b "$branch" -q
+  )
+  yq -i ".scaffold.fork.url = \"${fork_url}\"" "$dest/agent.yml"
+
+  echo "  ✓ fork ready: $fork_url"
+  echo "  ✓ remotes: origin (fork) + upstream (template)"
+  echo "  ✓ branch: $branch"
 }
 
 # Copy system files to the destination, move agent.yml/.env, chdir, git init.
@@ -573,18 +629,25 @@ scaffold_destination() {
   echo "  ✓ system files copied"
   echo "  ✓ agent.yml and .env moved"
 
-  # Git init with {agent-name}/live branch
-  local agent_name_for_branch
-  agent_name_for_branch=$(yq '.agent.name' "$dest/agent.yml")
-  local branch="${agent_name_for_branch}/live"
-  (
-    cd "$dest"
-    git init -b "$branch" -q 2>/dev/null || git init -q  # older git may not support -b
-    if [ "$(git symbolic-ref --short HEAD 2>/dev/null)" != "$branch" ]; then
-      git checkout -b "$branch" -q 2>/dev/null || true
-    fi
-  )
-  echo "  ✓ git init (branch: $branch)"
+  # Git init — fork-aware branch naming
+  local fork_enabled agent_lc host_lc
+  fork_enabled=$(yq '.scaffold.fork.enabled // false' "$dest/agent.yml")
+  agent_lc=$(yq '.agent.name' "$dest/agent.yml" | tr '[:upper:]' '[:lower:]')
+  host_lc=$(yq '.deployment.host' "$dest/agent.yml" | tr '[:upper:]' '[:lower:]')
+
+  if [ "$fork_enabled" = "true" ]; then
+    scaffold_with_fork "$dest" "$agent_lc" "$host_lc"
+  else
+    local branch="${agent_lc}/live"
+    (
+      cd "$dest"
+      git init -b "$branch" -q 2>/dev/null || git init -q
+      if [ "$(git symbolic-ref --short HEAD 2>/dev/null)" != "$branch" ]; then
+        git checkout -b "$branch" -q 2>/dev/null || true
+      fi
+    )
+    echo "  ✓ git init (branch: $branch)"
+  fi
 
   # Redirect all subsequent operations to $dest
   SCRIPT_DIR="$dest"

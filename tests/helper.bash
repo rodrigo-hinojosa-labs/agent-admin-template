@@ -9,7 +9,11 @@ setup_tmp_dir() {
 }
 
 teardown_tmp_dir() {
-  [ -n "${TMP_TEST_DIR:-}" ] && [ -d "$TMP_TEST_DIR" ] && rm -rf "$TMP_TEST_DIR"
+  if [ -n "${TMP_TEST_DIR:-}" ] && [ -d "$TMP_TEST_DIR" ]; then
+    rm -rf "$TMP_TEST_DIR"
+  fi
+  # Always succeed — if the test itself nuked TMP_TEST_DIR, that's fine.
+  return 0
 }
 
 load_lib() {

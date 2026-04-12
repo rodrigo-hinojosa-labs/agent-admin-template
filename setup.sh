@@ -12,6 +12,7 @@ MODE="auto"
 FORCE_CLAUDE_MD=false
 UNINSTALL_PURGE=false
 UNINSTALL_YES=false
+UNINSTALL_NUKE=false
 DESTINATION=""
 IN_PLACE=false
 
@@ -29,6 +30,9 @@ Options:
                        sessions, and generated files inside the repo.
                        Preserves agent.yml and .env unless --purge is given.
   --purge              With --uninstall, also remove agent.yml and .env.
+  --nuke               With --uninstall, also remove the agent workspace
+                       directory itself (and its parent if left empty).
+                       Implies --purge.
   --yes                With --uninstall, skip the confirmation prompt.
   --destination PATH   (wizard only) Use PATH instead of prompting for the destination.
   --in-place           (wizard only) Skip scaffold — generate files in the current
@@ -51,6 +55,7 @@ parse_args() {
       --force-claude-md) FORCE_CLAUDE_MD=true; shift ;;
       --uninstall) MODE="uninstall"; shift ;;
       --purge) UNINSTALL_PURGE=true; shift ;;
+      --nuke) UNINSTALL_NUKE=true; UNINSTALL_PURGE=true; shift ;;
       --yes|-y) UNINSTALL_YES=true; shift ;;
       --destination) DESTINATION="$2"; shift 2 ;;
       --in-place) IN_PLACE=true; shift ;;
@@ -104,7 +109,11 @@ run_wizard() {
     deploy_ws="$DESTINATION"
     echo "  Agent destination directory: $deploy_ws (from --destination flag)"
   else
-    deploy_ws=$(ask "Agent destination directory" "\$HOME/Claude/Agents/$agent_name")
+    # Default: sibling of the installer (so the agent lives next to the clone)
+    local installer_parent default_dest
+    installer_parent=$(dirname "$SCRIPT_DIR")
+    default_dest="${installer_parent}/${agent_name}"
+    deploy_ws=$(ask "Agent destination directory" "$default_dest")
   fi
   deploy_svc=$(ask_yn "Install as system service?" "y")
   echo ""
@@ -543,8 +552,20 @@ uninstall() {
   local env_file="$SCRIPT_DIR/.env"
 
   if [ ! -f "$agent_yml" ]; then
-    echo "ERROR: agent.yml not found; nothing to uninstall." >&2
-    echo "       (If you manually deleted agent.yml but files linger, remove them by hand.)" >&2
+    echo "ERROR: agent.yml not found in $SCRIPT_DIR" >&2
+    # Heuristic: if this directory has modules/ + scripts/lib/ but no agent.yml,
+    # it's an installer clone, not an agent destination.
+    if [ -d "$SCRIPT_DIR/modules" ] && [ -d "$SCRIPT_DIR/scripts/lib" ]; then
+      echo "" >&2
+      echo "This looks like the installer clone. The agent's files were scaffolded" >&2
+      echo "to a destination elsewhere — uninstall must be run from that directory." >&2
+      echo "" >&2
+      echo "Try:" >&2
+      echo "  cd <your-agent-workspace>" >&2
+      echo "  ./setup.sh --uninstall" >&2
+    else
+      echo "       (If you manually deleted agent.yml but files linger, remove them by hand.)" >&2
+    fi
     exit 1
   fi
 
@@ -588,6 +609,10 @@ uninstall() {
     echo "Preserved (pass --purge to also remove):"
     echo "  - agent.yml"
     echo "  - .env"
+  fi
+  if [ "$UNINSTALL_NUKE" = true ]; then
+    echo "  - $SCRIPT_DIR (entire workspace directory)"
+    echo "  - its parent directory if left empty"
   fi
   echo ""
 
@@ -660,6 +685,30 @@ uninstall() {
     echo "▸ Purging source of truth and secrets"
     rm -f "$agent_yml" && echo "  ✓ agent.yml" || true
     rm -f "$env_file" && echo "  ✓ .env" || true
+  fi
+
+  # ── Nuke: remove the workspace itself (and walk up if empty) ─────
+  if [ "$UNINSTALL_NUKE" = true ]; then
+    echo ""
+    echo "▸ Nuking workspace"
+    local workspace_dir="$SCRIPT_DIR"
+    local parent_dir
+    parent_dir=$(dirname "$workspace_dir")
+    # Step out of the workspace before deleting it.
+    cd "$parent_dir"
+    if command -v trash &>/dev/null; then
+      trash "$workspace_dir" 2>/dev/null && echo "  ✓ trashed $workspace_dir" || \
+        { rm -rf "$workspace_dir" && echo "  ✓ removed $workspace_dir"; }
+    else
+      rm -rf "$workspace_dir" && echo "  ✓ removed $workspace_dir"
+    fi
+    # Walk up: if the parent is empty AND under $HOME AND not $HOME itself, remove it too.
+    if [ -d "$parent_dir" ] && \
+       [ "$parent_dir" != "$HOME" ] && \
+       [ "$(cd "$parent_dir" && ls -A)" = "" ] && \
+       [[ "$parent_dir" == "$HOME"/* ]]; then
+      rmdir "$parent_dir" 2>/dev/null && echo "  ✓ removed empty parent $parent_dir" || true
+    fi
   fi
 
   echo ""

@@ -64,6 +64,7 @@ rm -rf /tmp/agent-installer    # delete the installer clone if you're done with 
 | `--non-interactive` | Require `agent.yml` to exist; no prompts. Just regenerate. Good for CI. |
 | `--uninstall` | Stop services, remove installed scripts/timers/plists/tmux sessions, and delete generated files inside the agent dir. |
 | `--purge` | With `--uninstall`, also remove `agent.yml` and `.env`. |
+| `--nuke` | With `--uninstall`, also remove the workspace directory itself (and its parent if left empty). Implies `--purge`. |
 | `--yes` / `-y` | With `--uninstall`, skip the confirmation prompt. |
 | `--help` / `-h` | Show the usage message. |
 
@@ -92,6 +93,7 @@ cd <destination>
 cd <destination>
 ./setup.sh --uninstall            # stop services, remove generated files (keeps agent.yml + .env)
 ./setup.sh --uninstall --purge    # also remove agent.yml + .env
+./setup.sh --uninstall --nuke     # everything above + delete the workspace dir itself
 ```
 
 ## Requirements

@@ -2,14 +2,14 @@
 
 Hola {{USER_NICKNAME}}. Tu agente está listo en `{{DEPLOYMENT_WORKSPACE}}`.
 
-## 1. Ir al workspace
+## Ir al workspace
 
 ```bash
 cd {{DEPLOYMENT_WORKSPACE}}
 ```
 
 {{#if SCAFFOLD_FORK_ENABLED}}
-## 2. Subir la rama al fork
+## Subir la rama al fork
 
 ```bash
 git push -u origin {{SCAFFOLD_FORK_BRANCH}}
@@ -27,13 +27,13 @@ git checkout {{SCAFFOLD_FORK_BRANCH}}
 ```
 
 {{/if}}
-## 3. Iniciar el agente
+## Iniciar el agente
 
 ```bash
 {{DEPLOYMENT_CLAUDE_CLI}}
 ```
 
-## 4. Primer prompt (cópialo tal cual en la primera sesión)
+## Primer prompt (cópialo tal cual en la primera sesión)
 
 ```
 Primer arranque del agente {{AGENT_NAME}}. Valida en este orden y corrige lo que falte:
@@ -50,7 +50,7 @@ Si alguno falla, guíame paso a paso para arreglarlo antes de seguir.
 ```
 
 {{#unless MCPS_GITHUB_ENABLED}}
-## 5. GitHub MCP (no configurado)
+## GitHub MCP (no configurado)
 
 El MCP de GitHub no quedó habilitado. Para activarlo:
 
@@ -64,7 +64,7 @@ El MCP de GitHub no quedó habilitado. Para activarlo:
 
 {{/unless}}
 {{#unless NOTIF_IS_TELEGRAM}}
-## 6. Telegram (chat bidireccional con el agente)
+## Telegram (chat bidireccional con el agente)
 
 No configuraste Telegram en el wizard. Si quieres chatear con el agente desde tu teléfono:
 
@@ -82,7 +82,7 @@ No configuraste Telegram en el wizard. Si quieres chatear con el agente desde tu
 
 {{/unless}}
 {{#unless DEPLOYMENT_INSTALL_SERVICE}}
-## 7. Ejecutar el agente como servicio (opcional)
+## Ejecutar el agente como servicio (opcional)
 
 Dijiste `install_service: no` en el wizard. Si después quieres que {{AGENT_NAME}} arranque solo al encender el computador:
 
@@ -115,7 +115,7 @@ systemctl --user status {{AGENT_NAME}}.service
 
 {{/unless}}
 {{#if DEPLOYMENT_INSTALL_SERVICE}}
-## 7. Verificar el servicio
+## Verificar el servicio
 
 ```bash
 systemctl --user status {{AGENT_NAME}}.service
@@ -123,11 +123,11 @@ systemctl --user restart {{AGENT_NAME}}.service   # si necesitas reiniciar
 ```
 
 {{/if}}
-## 8. Comandos útiles
+## Comandos útiles
 
 ```bash
 ./setup.sh --regenerate          # después de editar agent.yml
-./setup.sh --sync-template       # traer mejoras del template (próximamente)
+./setup.sh --sync-template       # traer mejoras del template al fork
 ./setup.sh --uninstall           # desmontar el agente
 ```
 

@@ -2,14 +2,14 @@
 
 Hi {{USER_NICKNAME}}. Your agent is ready at `{{DEPLOYMENT_WORKSPACE}}`.
 
-## 1. Go to the workspace
+## Go to the workspace
 
 ```bash
 cd {{DEPLOYMENT_WORKSPACE}}
 ```
 
 {{#if SCAFFOLD_FORK_ENABLED}}
-## 2. Push the branch to your fork
+## Push the branch to your fork
 
 ```bash
 git push -u origin {{SCAFFOLD_FORK_BRANCH}}
@@ -27,13 +27,13 @@ git checkout {{SCAFFOLD_FORK_BRANCH}}
 ```
 
 {{/if}}
-## 3. Start the agent
+## Start the agent
 
 ```bash
 {{DEPLOYMENT_CLAUDE_CLI}}
 ```
 
-## 4. First prompt (paste as-is into the first session)
+## First prompt (paste as-is into the first session)
 
 ```
 First boot of agent {{AGENT_NAME}}. Validate in this order and fix anything missing:
@@ -50,7 +50,7 @@ If any step fails, walk me through fixing it before continuing.
 ```
 
 {{#unless MCPS_GITHUB_ENABLED}}
-## 5. GitHub MCP (not configured)
+## GitHub MCP (not configured)
 
 GitHub MCP isn't enabled. To turn it on:
 
@@ -64,7 +64,7 @@ GitHub MCP isn't enabled. To turn it on:
 
 {{/unless}}
 {{#unless NOTIF_IS_TELEGRAM}}
-## 6. Telegram (two-way chat with the agent)
+## Telegram (two-way chat with the agent)
 
 You didn't set up Telegram in the wizard. To chat with the agent from your phone:
 
@@ -82,7 +82,7 @@ You didn't set up Telegram in the wizard. To chat with the agent from your phone
 
 {{/unless}}
 {{#unless DEPLOYMENT_INSTALL_SERVICE}}
-## 7. Run the agent as a service (optional)
+## Run the agent as a service (optional)
 
 You picked `install_service: no`. If you later want {{AGENT_NAME}} to start on boot:
 
@@ -113,7 +113,7 @@ systemctl --user status {{AGENT_NAME}}.service
 
 {{/unless}}
 {{#if DEPLOYMENT_INSTALL_SERVICE}}
-## 7. Verify the service
+## Verify the service
 
 ```bash
 systemctl --user status {{AGENT_NAME}}.service
@@ -121,11 +121,11 @@ systemctl --user restart {{AGENT_NAME}}.service   # if you need to restart
 ```
 
 {{/if}}
-## 8. Useful commands
+## Useful commands
 
 ```bash
 ./setup.sh --regenerate          # after editing agent.yml
-./setup.sh --sync-template       # pull template improvements (coming soon)
+./setup.sh --sync-template       # pull template improvements into the fork
 ./setup.sh --uninstall           # tear down the agent
 ```
 

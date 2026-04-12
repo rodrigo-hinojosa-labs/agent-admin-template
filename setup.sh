@@ -117,6 +117,9 @@ Options:
   (no flags)           Interactive wizard on first run; regenerate on subsequent runs.
   --regenerate         Re-render derived files from agent.yml (keeps CLAUDE.md).
   --force-claude-md    With --regenerate, also overwrite CLAUDE.md.
+  --sync-template      Pull template improvements into this fork. Fetches
+                       upstream/main, fast-forwards local main, pushes it to
+                       origin, and rebases the live branch on top.
   --non-interactive    Fail if agent.yml missing; no prompts.
   --reset              Delete agent.yml and re-run the wizard.
   --uninstall          Remove installed services, agent scripts, timers, tmux
@@ -147,6 +150,7 @@ parse_args() {
       --non-interactive) MODE="non-interactive"; shift ;;
       --force-claude-md) FORCE_CLAUDE_MD=true; shift ;;
       --uninstall) MODE="uninstall"; shift ;;
+      --sync-template) MODE="sync-template"; shift ;;
       --purge) UNINSTALL_PURGE=true; shift ;;
       --nuke) UNINSTALL_NUKE=true; UNINSTALL_PURGE=true; shift ;;
       --yes|-y) UNINSTALL_YES=true; shift ;;
@@ -522,6 +526,70 @@ EOF
     echo ""
     echo "The installer clone ($src_dir) is no longer needed and can be deleted."
   fi
+}
+
+# Pull template improvements into the fork: fetch upstream/main,
+# fast-forward local main, push to origin, rebase the live branch on top.
+# Must be run from a scaffolded agent directory (agent.yml present).
+sync_template() {
+  local dest="$SCRIPT_DIR"
+  [ ! -f "$dest/agent.yml" ] && { echo "ERROR: agent.yml not found; run wizard first" >&2; exit 1; }
+  [ ! -d "$dest/.git" ]      && { echo "ERROR: not a git repo: $dest" >&2; exit 1; }
+
+  local fork_enabled
+  fork_enabled=$(yq '.scaffold.fork.enabled // false' "$dest/agent.yml")
+  if [ "$fork_enabled" != "true" ]; then
+    echo "ERROR: --sync-template requires a fork-based agent (scaffold.fork.enabled=true)" >&2
+    echo "       This agent was scaffolded in legacy mode without a template upstream." >&2
+    exit 1
+  fi
+
+  cd "$dest"
+
+  # Abort if the working tree is dirty — rebasing would corrupt unsaved work.
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "ERROR: working tree has uncommitted changes. Commit or stash first." >&2
+    exit 1
+  fi
+
+  local live_branch
+  live_branch=$(git symbolic-ref --short HEAD)
+  if ! [[ "$live_branch" =~ /live$ ]]; then
+    echo "ERROR: expected to be on a live branch (matching */live), got: $live_branch" >&2
+    exit 1
+  fi
+
+  echo "▸ Fetching upstream..."
+  git fetch upstream -q
+
+  echo "▸ Fast-forwarding local main to upstream/main..."
+  git checkout main -q
+  if ! git merge --ff-only upstream/main -q; then
+    echo "ERROR: local main diverged from upstream/main." >&2
+    echo "       Resolve manually: git log main..upstream/main" >&2
+    git checkout "$live_branch" -q
+    exit 1
+  fi
+
+  echo "▸ Pushing updated main to origin..."
+  git push origin main -q
+
+  echo "▸ Rebasing $live_branch on updated main..."
+  git checkout "$live_branch" -q
+  if ! git rebase main; then
+    echo "" >&2
+    echo "⚠ Rebase hit a conflict. Resolve with:" >&2
+    echo "    git status           # see conflicting files" >&2
+    echo "    # edit files, then:" >&2
+    echo "    git add <files>" >&2
+    echo "    git rebase --continue" >&2
+    exit 1
+  fi
+
+  echo ""
+  echo "✓ $live_branch is now rebased on the latest template."
+  echo "  Inspect the diff: git log --oneline main..$live_branch"
+  echo "  Push when ready:  git push --force-with-lease origin $live_branch"
 }
 
 # Render NEXT_STEPS.md from the i18n template matching user.language and
@@ -1071,6 +1139,9 @@ main() {
       ;;
     uninstall)
       uninstall
+      ;;
+    sync-template)
+      sync_template
       ;;
     auto)
       if [ -f "$agent_yml" ]; then

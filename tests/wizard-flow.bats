@@ -4,7 +4,7 @@ load helper
 
 setup() {
   setup_tmp_dir
-  cp -r "$REPO_ROOT/scripts" "$TMP_TEST_DIR/"
+  cp -r "$REPO_ROOT/scripts" "$REPO_ROOT/modules" "$TMP_TEST_DIR/"
   cp "$REPO_ROOT/setup.sh" "$TMP_TEST_DIR/"
 }
 
@@ -33,6 +33,7 @@ y
 Check status
 y
 y
+n
 EOF
   [ "$status" -eq 0 ]
   [ -f agent.yml ]

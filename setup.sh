@@ -614,7 +614,7 @@ scaffold_with_fork() {
     [ $? -eq 0 ] && break
     sleep 2
   done
-  local version=$(( ${existing_version:-99} + 1 ))
+  local version=$(( ${existing_version:-0} + 1 ))
   local branch="${host_lc}-${agent_lc}-${version}/live"
   local fork_url="https://github.com/${fork_owner}/${fork_name}"
 

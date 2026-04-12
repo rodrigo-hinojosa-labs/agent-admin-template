@@ -15,7 +15,9 @@ teardown() { teardown_tmp_dir; }
 
 @test "E2E: fresh wizard with defaults produces functional agent" {
   cd "$TMP_TEST_DIR"
-  # 20 answers for the wizard:
+  local dest="$TMP_TEST_DIR/e2e-bot-dest"
+  # Using --destination to scaffold to a known path
+  # Answers (--destination skips the workspace prompt):
   # 1. agent name (e2e-bot)
   # 2. agent display (E2EBot 🤖)
   # 3. agent role (Test role)
@@ -26,17 +28,16 @@ teardown() { teardown_tmp_dir; }
   # 8. email (test@example.com)
   # 9. language (en)
   # 10. host (test-host)
-  # 11. workspace (~/Claude/Agents/e2e-bot)
-  # 12. install_service (n)
-  # 13. notifications channel (none)
-  # 14. atlassian (n)
-  # 15. github (n)
-  # 16. heartbeat enabled (y)
-  # 17. heartbeat interval (30m)
-  # 18. heartbeat prompt (Test prompt)
-  # 19. use default principles (y)
-  # 20. confirm/proceed (y)
-  run ./setup.sh <<EOF
+  # 11. install_service (n)
+  # 12. notifications channel (none)
+  # 13. atlassian (n)
+  # 14. github (n)
+  # 15. heartbeat enabled (y)
+  # 16. heartbeat interval (30m)
+  # 17. heartbeat prompt (Test prompt)
+  # 18. use default principles (y)
+  # 19. confirm/proceed (y)
+  run ./setup.sh --destination "$dest" <<EOF
 e2e-bot
 E2EBot 🤖
 Test role
@@ -47,7 +48,6 @@ UTC
 test@example.com
 en
 test-host
-~/Claude/Agents/e2e-bot
 n
 none
 n
@@ -59,37 +59,42 @@ y
 y
 EOF
   [ "$status" -eq 0 ]
-  [ -f agent.yml ]
-  [ -f .env ]
+
+  # agent.yml should be MOVED to destination
+  [ ! -f agent.yml ]
+  [ -f "$dest/agent.yml" ]
+  [ -f "$dest/.env" ]
 
   # Content checks for agent.yml
-  [ "$(yq '.agent.name' agent.yml)" = "e2e-bot" ]
-  [ "$(yq '.agent.display_name' agent.yml)" = "E2EBot 🤖" ]
-  [ "$(yq '.user.name' agent.yml)" = "Test User" ]
-  [ "$(yq '.user.nickname' agent.yml)" = "Test" ]
-  [ "$(yq '.deployment.host' agent.yml)" = "test-host" ]
-  [ "$(yq '.notifications.channel' agent.yml)" = "none" ]
-  [ "$(yq '.features.heartbeat.enabled' agent.yml)" = "true" ]
-  [ "$(yq '.features.heartbeat.interval' agent.yml)" = "30m" ]
-  [ "$(yq '.features.heartbeat.default_prompt' agent.yml)" = "Test prompt" ]
+  [ "$(yq '.agent.name' "$dest/agent.yml")" = "e2e-bot" ]
+  [ "$(yq '.agent.display_name' "$dest/agent.yml")" = "E2EBot 🤖" ]
+  [ "$(yq '.user.name' "$dest/agent.yml")" = "Test User" ]
+  [ "$(yq '.user.nickname' "$dest/agent.yml")" = "Test" ]
+  [ "$(yq '.deployment.host' "$dest/agent.yml")" = "test-host" ]
+  [ "$(yq '.notifications.channel' "$dest/agent.yml")" = "none" ]
+  [ "$(yq '.features.heartbeat.enabled' "$dest/agent.yml")" = "true" ]
+  [ "$(yq '.features.heartbeat.interval' "$dest/agent.yml")" = "30m" ]
+  [ "$(yq '.features.heartbeat.default_prompt' "$dest/agent.yml")" = "Test prompt" ]
 
-  # Now run regenerate to produce derived files
-  # Pass 'n' to skip plugin install prompt
-  run bash -c "echo 'n' | ./setup.sh --regenerate"
-  [ "$status" -eq 0 ]
-
-  # Verify all derived files exist
-  [ -f CLAUDE.md ]
-  [ -f .mcp.json ]
-  [ -f .env.example ]
-  [ -f scripts/heartbeat/heartbeat.conf ]
+  # Verify all derived files exist in destination
+  [ -f "$dest/CLAUDE.md" ]
+  [ -f "$dest/.mcp.json" ]
+  [ -f "$dest/.env.example" ]
+  [ -f "$dest/scripts/heartbeat/heartbeat.conf" ]
 
   # CLAUDE.md should contain agent display name
-  grep -q "E2EBot" CLAUDE.md
+  grep -q "E2EBot" "$dest/CLAUDE.md"
 
   # .mcp.json should be valid JSON
-  jq . .mcp.json > /dev/null
+  jq . "$dest/.mcp.json" > /dev/null
 
   # heartbeat.conf should have the interval
-  grep -q 'HEARTBEAT_INTERVAL="30m"' scripts/heartbeat/heartbeat.conf
+  grep -q 'HEARTBEAT_INTERVAL="30m"' "$dest/scripts/heartbeat/heartbeat.conf"
+
+  # Git repo on correct branch
+  [ "$(git -C "$dest" rev-parse --abbrev-ref HEAD)" = "e2e-bot/live" ]
+
+  # Now run regenerate from within destination to prove it's self-contained
+  run bash -c "echo 'n' | '$dest/setup.sh' --regenerate"
+  [ "$status" -eq 0 ]
 }

@@ -26,7 +26,7 @@ OS="$(uname -s)"
 TIMER_NAME="${AGENT_NAME}-heartbeat"
 
 if [ "$OS" = "Darwin" ]; then
-  PLIST_NAME="cloud.rodribot.${TIMER_NAME}"
+  PLIST_NAME="local.${TIMER_NAME}"
   PLIST_DIR="$HOME/Library/LaunchAgents"
   PLIST_FILE="$PLIST_DIR/$PLIST_NAME.plist"
 else

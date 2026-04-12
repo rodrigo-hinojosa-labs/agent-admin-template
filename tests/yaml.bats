@@ -40,3 +40,8 @@ setup() {
   result=$(yaml_array_item "$FIXTURE" '.mcps.atlassian' 1 '.email')
   [ "$result" = "alice@personal.com" ]
 }
+
+@test "yaml_array_item returns empty string for missing subpath" {
+  result=$(yaml_array_item "$FIXTURE" '.mcps.atlassian' 0 '.nonexistent')
+  [ -z "$result" ]
+}

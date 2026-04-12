@@ -29,9 +29,13 @@ yaml_array_length() {
 }
 
 # yaml_array_item FILE PATH INDEX SUBPATH → prints value at path[index].subpath
+# Returns empty string for null/missing (matches yaml_get behavior).
 yaml_array_item() {
   local file="$1" path="$2" index="$3" subpath="$4"
-  yq "${path}[${index}]${subpath}" "$file" 2>/dev/null
+  local result
+  result=$(yq "${path}[${index}]${subpath}" "$file" 2>/dev/null)
+  [ "$result" = "null" ] && result=""
+  echo "$result"
 }
 
 # yaml_require_yq — fails if yq is not installed

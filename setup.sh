@@ -626,8 +626,13 @@ scaffold_with_fork() {
     # Fetch main from the fork so the live branch has shared history with
     # upstream. Required for --sync-template to rebase cleanly.
     if git fetch origin main --depth=1 -q 2>/dev/null; then
-      git branch main FETCH_HEAD
-      git checkout -b "$branch" main -q
+      # Working tree already has the template files (we just copied them).
+      # Point main at FETCH_HEAD and populate the index without rewriting
+      # files — a plain checkout would abort on "untracked would overwrite".
+      git update-ref refs/heads/main FETCH_HEAD
+      git symbolic-ref HEAD refs/heads/main
+      git reset --mixed -q HEAD
+      git checkout -b "$branch" -q
     else
       echo "  ⚠ could not fetch origin/main (fork may still be initializing)"
       echo "    falling back to orphan live branch — sync-template may need manual fixup"

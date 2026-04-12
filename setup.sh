@@ -9,6 +9,19 @@ source "$SCRIPT_DIR/scripts/lib/render.sh"
 
 GUM=""  # populated by ensure_gum
 
+# Detect which claude CLI variant is installed. Preference order:
+# claude-enterprise > claude-personal > claude. Falls back to "claude"
+# if none are found (user will install it later).
+detect_claude_cli() {
+  for bin in claude-enterprise claude-personal claude; do
+    if command -v "$bin" &>/dev/null; then
+      echo "$bin"
+      return 0
+    fi
+  done
+  echo "claude"
+}
+
 # Ensure gum is available. Returns 0 if found or downloaded; 1 otherwise.
 # On success, $GUM points to a usable gum binary.
 ensure_gum() {
@@ -432,6 +445,7 @@ deployment:
   host: "$deploy_host"
   workspace: "$deploy_ws"
   install_service: $deploy_svc
+  claude_cli: "$(detect_claude_cli)"
 
 scaffold:
   template_url: "$template_url"

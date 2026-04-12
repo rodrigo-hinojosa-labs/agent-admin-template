@@ -2,6 +2,22 @@
 
 agent-admin-template is a bash-based template generator that produces a personalized Claude Code admin agent from a single source of truth (`agent.yml`).
 
+## Installer vs destination
+
+The cloned repo is an **installer**. When the wizard runs, it:
+
+1. Writes `agent.yml` and `.env` in the installer directory (transient).
+2. Copies its system files (`setup.sh`, `modules/`, `scripts/`) to the chosen destination.
+3. Moves `agent.yml` and `.env` to the destination.
+4. `cd`s to the destination and runs `regenerate` from there.
+5. Initializes a git repo in the destination on branch `{agent-name}/live`.
+
+After scaffolding, the destination is a self-contained agent workspace. The installer clone can be deleted.
+
+`setup.sh` auto-detects which mode it's in: if `agent.yml` is present in the current directory, it treats itself as already scaffolded and runs regenerate/uninstall against it. If `agent.yml` is missing, it runs the wizard.
+
+The `--in-place` flag overrides this behavior for legacy users who want everything in the clone itself (no scaffolding).
+
 ## Two layers
 
 **Configuration layer (user-owned):**

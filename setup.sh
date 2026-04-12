@@ -618,14 +618,19 @@ scaffold_with_fork() {
   local branch="${host_lc}-${agent_lc}-${version}/live"
   local fork_url="https://github.com/${fork_owner}/${fork_name}"
 
+  # Use HTTPS + PAT for origin so the scaffold works without relying on
+  # any particular SSH key setup. The PAT is already in .env (gitignored).
+  # Users who prefer SSH can switch with: git remote set-url origin git@...
+  local origin_url="https://x-access-token:${token}@github.com/${fork_owner}/${fork_name}.git"
   (
     cd "$dest"
     git init -q
-    git remote add origin "git@github.com:${fork_owner}/${fork_name}.git"
+    git remote add origin "$origin_url"
     git remote add upstream "${template_url}.git"
     # Fetch main from the fork so the live branch has shared history with
     # upstream. Required for --sync-template to rebase cleanly.
-    if git fetch origin main --depth=1 -q 2>/dev/null; then
+    local fetch_err
+    if fetch_err=$(git fetch origin main --depth=1 2>&1); then
       # Working tree already has the template files (we just copied them).
       # Point main at FETCH_HEAD and populate the index without rewriting
       # files — a plain checkout would abort on "untracked would overwrite".
@@ -634,8 +639,9 @@ scaffold_with_fork() {
       git reset --mixed -q HEAD
       git checkout -b "$branch" -q
     else
-      echo "  ⚠ could not fetch origin/main (fork may still be initializing)"
-      echo "    falling back to orphan live branch — sync-template may need manual fixup"
+      echo "  ⚠ could not fetch origin/main:" >&2
+      echo "$fetch_err" | sed 's/^/      /' >&2
+      echo "    falling back to orphan live branch — sync-template will need manual fixup"
       git checkout -b "$branch" -q
     fi
   )

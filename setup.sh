@@ -518,23 +518,41 @@ EOF
   fi
 
   if [ "$IN_PLACE" != true ]; then
-    echo ""
-    echo "═══════════════════════════════════════════════════"
-    echo " Your agent is ready at:"
-    echo "   $SCRIPT_DIR"
-    echo "═══════════════════════════════════════════════════"
-    echo ""
-    echo "Next steps:"
-    echo "  cd $SCRIPT_DIR"
-    if [ "$fork_enabled" = "true" ] && [ -n "$final_branch" ]; then
-      echo "  git push -u origin $final_branch    # push to your fork"
-    fi
-    echo "  claude                            # start the agent"
-    echo "  ./setup.sh --regenerate           # after editing agent.yml"
-    echo "  ./setup.sh --uninstall            # undo install"
+    render_next_steps "$SCRIPT_DIR"
     echo ""
     echo "The installer clone ($src_dir) is no longer needed and can be deleted."
   fi
+}
+
+# Render NEXT_STEPS.md from the i18n template matching user.language and
+# print it to stdout. Templates live at modules/next-steps.{es,en}.tpl.
+render_next_steps() {
+  local dest="$1"
+  local lang template
+  lang=$(yq '.user.language // "en"' "$dest/agent.yml")
+  case "$lang" in
+    es|mixed) template="$dest/modules/next-steps.es.tpl" ;;
+    *)        template="$dest/modules/next-steps.en.tpl" ;;
+  esac
+  [ ! -f "$template" ] && return 0
+
+  # Helper boolean derived from notifications.channel for {{#unless}}
+  local notif_channel
+  notif_channel=$(yq '.notifications.channel // "none"' "$dest/agent.yml")
+  if [ "$notif_channel" = "telegram" ]; then
+    export NOTIF_IS_TELEGRAM="true"
+  else
+    export NOTIF_IS_TELEGRAM="false"
+  fi
+
+  render_load_context "$dest/agent.yml"
+  render_to_file "$template" "$dest/NEXT_STEPS.md"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════"
+  echo " Next steps (also saved to $dest/NEXT_STEPS.md)"
+  echo "═══════════════════════════════════════════════════"
+  cat "$dest/NEXT_STEPS.md"
 }
 
 # Fork the template on GitHub, init the destination git repo pointing at it,
@@ -591,6 +609,7 @@ scaffold_with_fork() {
     fi
   )
   yq -i ".scaffold.fork.url = \"${fork_url}\"" "$dest/agent.yml"
+  yq -i ".scaffold.fork.branch = \"${branch}\"" "$dest/agent.yml"
 
   echo "  ✓ fork ready: $fork_url"
   echo "  ✓ remotes: origin (fork) + upstream (template)"

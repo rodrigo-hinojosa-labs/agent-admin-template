@@ -263,7 +263,124 @@ EOF
 }
 
 regenerate() {
-  echo "[regenerate stub]"
+  local agent_yml="$SCRIPT_DIR/agent.yml"
+  local modules_dir="$SCRIPT_DIR/modules"
+  local os
+  os=$(uname -s | tr '[:upper:]' '[:lower:]')  # darwin | linux
+
+  echo "▸ Loading context from agent.yml"
+  render_load_context "$agent_yml"
+
+  # Derived env vars not in YAML
+  export HOME_DIR="$HOME"
+  export OS="$os"
+  if [ "${NOTIFICATIONS_CHANNEL:-none}" = "telegram" ]; then
+    export NOTIFICATIONS_CHANNEL_IS_TELEGRAM=true
+  else
+    export NOTIFICATIONS_CHANNEL_IS_TELEGRAM=false
+  fi
+
+  local agent_name="$AGENT_NAME"
+  local workspace
+  workspace=$(eval echo "$DEPLOYMENT_WORKSPACE")
+
+  echo "▸ Rendering modules"
+
+  # CLAUDE.md — only if missing or --force-claude-md
+  if [ ! -f "$SCRIPT_DIR/CLAUDE.md" ] || [ "$FORCE_CLAUDE_MD" = true ]; then
+    if [ -f "$SCRIPT_DIR/CLAUDE.md" ] && [ "$FORCE_CLAUDE_MD" = true ]; then
+      if [ "$(ask_yn 'Overwrite existing CLAUDE.md? THIS IS DESTRUCTIVE' 'n')" = "false" ]; then
+        echo "  skipping CLAUDE.md (preserved)"
+      else
+        render_to_file "$modules_dir/claude-md.tpl" "$SCRIPT_DIR/CLAUDE.md"
+        echo "  ✓ CLAUDE.md (overwritten)"
+      fi
+    else
+      render_to_file "$modules_dir/claude-md.tpl" "$SCRIPT_DIR/CLAUDE.md"
+      echo "  ✓ CLAUDE.md"
+    fi
+  else
+    echo "  ◦ CLAUDE.md (preserved — use --force-claude-md to overwrite)"
+  fi
+
+  # .mcp.json
+  render_to_file "$modules_dir/mcp-json.tpl" "$SCRIPT_DIR/.mcp.json"
+  echo "  ✓ .mcp.json"
+
+  # .env.example
+  render_to_file "$modules_dir/env-example.tpl" "$SCRIPT_DIR/.env.example"
+  echo "  ✓ .env.example"
+
+  # heartbeat.conf
+  if [ "${FEATURES_HEARTBEAT_ENABLED:-false}" = "true" ]; then
+    render_to_file "$modules_dir/heartbeat-conf.tpl" "$SCRIPT_DIR/scripts/heartbeat/heartbeat.conf"
+    echo "  ✓ scripts/heartbeat/heartbeat.conf"
+  fi
+
+  if [ "${DEPLOYMENT_INSTALL_SERVICE:-false}" = "true" ]; then
+    install_service "$os" "$agent_name" "$workspace"
+  fi
+
+  echo ""
+  echo "✓ Regeneration complete."
+
+  maybe_install_plugins
+}
+
+install_service() {
+  local os="$1" agent_name="$2" workspace="$3"
+  local modules_dir="$SCRIPT_DIR/modules"
+
+  mkdir -p "$HOME/.local/bin"
+
+  case "$os" in
+    linux)
+      render_to_file "$modules_dir/agent-script-linux.sh.tpl" "$HOME/.local/bin/${agent_name}.sh"
+      chmod +x "$HOME/.local/bin/${agent_name}.sh"
+      echo "  ✓ ~/.local/bin/${agent_name}.sh"
+
+      mkdir -p "$HOME/.config/systemd/user"
+      render_to_file "$modules_dir/systemd.service.tpl" "$HOME/.config/systemd/user/${agent_name}.service"
+      systemctl --user daemon-reload 2>/dev/null || true
+      echo "  ✓ ~/.config/systemd/user/${agent_name}.service"
+      echo "  → enable with: systemctl --user enable --now ${agent_name}.service"
+      ;;
+    darwin)
+      render_to_file "$modules_dir/agent-script-mac.sh.tpl" "$HOME/.local/bin/${agent_name}.sh"
+      chmod +x "$HOME/.local/bin/${agent_name}.sh"
+      echo "  ✓ ~/.local/bin/${agent_name}.sh"
+
+      mkdir -p "$HOME/Library/LaunchAgents" "$HOME/.local/share/${agent_name}"
+      render_to_file "$modules_dir/launchd.plist.tpl" "$HOME/Library/LaunchAgents/local.${agent_name}.plist"
+      echo "  ✓ ~/Library/LaunchAgents/local.${agent_name}.plist"
+      echo "  → load with: launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/local.${agent_name}.plist"
+      ;;
+  esac
+}
+
+maybe_install_plugins() {
+  local agent_yml="$SCRIPT_DIR/agent.yml"
+  [ "$MODE" = "non-interactive" ] && return 0
+
+  local plugin_count
+  plugin_count=$(yq '.plugins | length' "$agent_yml" 2>/dev/null || echo 0)
+  [ "$plugin_count" -le 0 ] && return 0
+
+  echo ""
+  echo "▸ Suggested Claude Code plugins:"
+  local i p
+  for i in $(seq 0 $((plugin_count - 1))); do
+    p=$(yq ".plugins[$i]" "$agent_yml")
+    echo "  - $p"
+  done
+
+  if [ "$(ask_yn 'Install suggested plugins now?' 'y')" = "true" ]; then
+    for i in $(seq 0 $((plugin_count - 1))); do
+      p=$(yq ".plugins[$i]" "$agent_yml")
+      echo "  → claude plugin install $p"
+      claude plugin install "$p" || echo "    (failed, continue anyway)"
+    done
+  fi
 }
 
 main() {

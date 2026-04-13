@@ -51,6 +51,13 @@ claude                         # starts the agent
 rm -rf /tmp/agent-installer    # delete the installer clone if you're done with it
 ```
 
+## Quickstart — Agentic mode
+
+Prefer to drive setup from inside a Claude Code session instead of answering prompts in the terminal? Open `claude` in the cloned directory and paste the prompt from one of the guides below — Claude validates prerequisites, runs the wizard with your pre-filled values, and shows you the rendered `NEXT_STEPS.md`.
+
+- 🇪🇸 [Modo agéntico — guía en español](docs/agentic-quickstart.es.md)
+- 🇬🇧 [Agentic mode — guide in English](docs/agentic-quickstart.en.md)
+
 ## All flags
 
 | Flag | Effect |

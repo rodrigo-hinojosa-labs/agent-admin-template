@@ -110,3 +110,36 @@ No pidas confirmación entre pasos — procede salvo que falte un valor crítico
 ## Alternativa: wizard interactivo
 
 Si prefieres el flujo tradicional por prompts en terminal, usa `./setup.sh` y responde cada pregunta a mano — ver la sección [Quick start](../README.md#quick-start) del README.
+
+---
+
+## Telegram (chat bidireccional)
+
+Después de que el agente esté arrancando, si quieres hablarle desde el móvil: configura el canal oficial del plugin `telegram@claude-plugins-official`. Permite DMs al agente desde Telegram con control de acceso por pairing + allowlist.
+
+Complementa al heartbeat: heartbeat = el agente te busca; Telegram = tú buscas al agente.
+
+### Requisitos
+
+- `bun` instalado en el sistema (el servidor MCP del plugin está en TypeScript y arranca con `bun run`). **Sin `bun`, el server muere silenciosamente al spawnearse y las tools `telegram__*` nunca aparecen.**
+  ```bash
+  curl -fsSL https://bun.sh/install | bash
+  ```
+- Plugin habilitado en `~/.claude/settings.json`:
+  ```json
+  "enabledPlugins": { "telegram@claude-plugins-official": true }
+  ```
+
+### Pasos
+
+1. **Crear bot** → habla con [@BotFather](https://t.me/BotFather) → `/newbot` → copia el token (`123456789:AAH...`).
+2. **Guardar token** → en la sesión de Claude: `/telegram:configure <token>`. Queda en `~/.claude/channels/telegram/.env` con permisos 600.
+3. **Reiniciar Claude Code completo.** No basta `/reload-plugins` si `bun` se instaló en la misma sesión — el PATH del proceso padre no se refresca.
+4. **Pairing** → mándale un DM al bot desde Telegram. El bot responde con un código. Apruébalo con `/telegram:access pair <código>`.
+5. **Lockdown** → `/telegram:access policy allowlist` para cerrar el canal solo a los IDs ya capturados. Pairing es transitorio, **no es política final**: si lo dejas así, cualquier chat que hable con el bot pasa.
+
+### Gotchas
+
+- **Orden de instalación de `bun`**: si lo instalas DESPUÉS de arrancar Claude Code, el proceso en memoria no ve el binario en PATH. Reinicio completo (no reload), siempre.
+- **Pairing abierto**: mientras esté en modo pairing, el canal acepta nuevos IDs. Cierra con `allowlist` apenas tengas tu(s) chat_id aprobado(s).
+- **Dos cosas distintas**: este plugin es para chat bidireccional. Si además quieres que el heartbeat te notifique por Telegram, eso es el driver `telegram` del heartbeat (se configura en el wizard, bot separado).

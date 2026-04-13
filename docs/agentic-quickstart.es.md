@@ -51,7 +51,7 @@ INSTALL_SERVICE="y"              # y | n
 
 FORK_ENABLED="y"                 # y | n — si n, ignora todos los FORK_*
 FORK_OWNER="rodri-agents"        # usuario u organización
-FORK_NAME=""                     # vacío = <agent>-<host>
+FORK_NAME=""                     # vacío = <agent>-agent (compartido entre hosts; las branches llevan el host)
 FORK_PRIVATE="y"
 TEMPLATE_URL="https://github.com/rodrigo-hinojosa-labs/agent-admin-template"
 FORK_PAT=""                      # ghp_... con scope repo

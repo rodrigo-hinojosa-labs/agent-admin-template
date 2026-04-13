@@ -245,7 +245,10 @@ run_wizard() {
     local host_lc agent_lc default_fork
     host_lc=$(echo "$deploy_host" | tr '[:upper:]' '[:lower:]')
     agent_lc=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
-    default_fork="${agent_lc}-${host_lc}"
+    # Repo es único por agente (compartido entre máquinas); el hostname vive
+    # en el nombre de la branch (ver scaffold_with_fork). Strip "-agent" si ya
+    # lo trae para evitar "foo-agent-agent".
+    default_fork="${agent_lc%-agent}-agent"
     fork_owner=$(ask "Fork owner (user or org)" "rodri-agents")
     fork_name=$(ask "Fork repo name" "$default_fork")
     fork_private=$(ask_yn "Make the fork private? (recommended)" "y")

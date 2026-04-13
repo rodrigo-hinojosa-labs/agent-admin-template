@@ -11,8 +11,8 @@ ExecStart=%h/.local/bin/{{AGENT_NAME}}.sh
 Restart=on-failure
 RestartSec=30
 Environment=HOME=%h
-Environment=CLAUDE_CONFIG_DIR=%h/.claude-personal
-Environment=TELEGRAM_STATE_DIR=%h/.claude-personal/channels/telegram-{{AGENT_NAME}}
+Environment=CLAUDE_CONFIG_DIR={{CLAUDE_CONFIG_DIR}}
+Environment=TELEGRAM_STATE_DIR={{TELEGRAM_STATE_DIR}}
 
 [Install]
 WantedBy=default.target

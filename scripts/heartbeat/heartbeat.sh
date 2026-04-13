@@ -40,9 +40,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Variables de entorno del agente
-CLAUDE_CONFIG_DIR="$HOME/.claude-personal"
-TELEGRAM_STATE_DIR="$HOME/.claude-personal/channels/telegram-${AGENT_NAME}"
+# Variables de entorno del agente — leídas de agent.yml (con fallback al
+# valor heredado para compatibilidad con agentes antiguos que no tienen la
+# sección claude.*).
+AGENT_YML="$WORKSPACE_DIR/agent.yml"
+if [ -f "$AGENT_YML" ] && command -v yq &>/dev/null; then
+  CLAUDE_CONFIG_DIR=$(yq '.claude.config_dir // ""' "$AGENT_YML")
+  [ "$CLAUDE_CONFIG_DIR" = "null" ] && CLAUDE_CONFIG_DIR=""
+fi
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude-personal}"
+CLAUDE_CONFIG_DIR=$(eval echo "$CLAUDE_CONFIG_DIR")
+TELEGRAM_STATE_DIR="$CLAUDE_CONFIG_DIR/channels/telegram-${AGENT_NAME}"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [heartbeat:${AGENT_NAME}] $*"

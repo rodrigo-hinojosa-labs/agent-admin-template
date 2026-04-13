@@ -49,6 +49,12 @@ HOST=""                          # empty = hostname -s of the current host
 DESTINATION="$HOME/Claude/Agents/linus"
 INSTALL_SERVICE="y"              # y | n
 
+# Claude profile: left empty, the wizard auto-inherits $CLAUDE_CONFIG_DIR
+# from the current session. Override only if you want a specific existing
+# profile or a new isolated one (the wizard's multi-candidate prompt accepts
+# a number; set this to that number, e.g. "1" for first candidate).
+CLAUDE_PROFILE_CHOICE=""         # empty = auto, "1"..."N" = pick candidate
+
 FORK_ENABLED="y"                 # y | n — if n, all FORK_* are ignored
 FORK_OWNER="rodri-agents"        # user or organization
 FORK_NAME=""                     # empty = <agent>-agent (shared across hosts; branches carry the host)
@@ -84,6 +90,7 @@ Then:
    - Agent identity: AGENT_NAME, DISPLAY_NAME, ROLE, VIBE
    - About you: USER_NAME, NICKNAME, TIMEZONE, EMAIL, LANGUAGE
    - Deployment: HOST, DESTINATION, INSTALL_SERVICE
+   - Claude profile: only prompted when multiple ~/.claude* dirs exist AND $CLAUDE_CONFIG_DIR is unset. If prompted, pass CLAUDE_PROFILE_CHOICE (default "1" = first existing profile)
    - Fork: FORK_ENABLED [if y: FORK_OWNER, FORK_NAME, FORK_PRIVATE, TEMPLATE_URL, FORK_PAT]
    - Heartbeat notifications: HEARTBEAT_NOTIF
    - MCPs: ATLASSIAN_ENABLED [if y: atlassian loop], GITHUB_MCP_ENABLED [if y: email + PAT]

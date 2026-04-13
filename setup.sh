@@ -228,6 +228,63 @@ run_wizard() {
   deploy_svc=$(ask_yn "Install as system service?" "y")
   echo ""
 
+  # ── 3.1 Claude profile ──────────────────────────────
+  # Picks an existing authenticated Claude config dir when possible so the
+  # agent can start without a second /login. Falls back to creating a new
+  # isolated profile only if the user asks for it (or if none exist).
+  echo "▸ Claude profile"
+  local claude_config_dir="" claude_profile_new="false"
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ -d "$CLAUDE_CONFIG_DIR" ]; then
+    claude_config_dir="$CLAUDE_CONFIG_DIR"
+    echo "  ✓ Using the Claude profile of the current session: $claude_config_dir"
+    echo "    (inherited from \$CLAUDE_CONFIG_DIR — no extra /login needed)"
+  else
+    local candidates=() dir seen
+    for dir in "$HOME/.claude" "$HOME/.claude-personal" "$HOME/.claude-enterprise"; do
+      [ -d "$dir" ] && candidates+=("$dir")
+    done
+    for dir in "$HOME"/.claude-*; do
+      [ -d "$dir" ] || continue
+      seen=false
+      for c in "${candidates[@]}"; do [ "$c" = "$dir" ] && seen=true && break; done
+      [ "$seen" = false ] && candidates+=("$dir")
+    done
+
+    if [ ${#candidates[@]} -eq 0 ]; then
+      claude_config_dir="\$HOME/.claude"
+      claude_profile_new="true"
+      echo "  No existing Claude profile found. Will use \$HOME/.claude"
+      echo "  ⚠  You'll need to run /login inside the tmux session once after install."
+    elif [ ${#candidates[@]} -eq 1 ]; then
+      claude_config_dir="${candidates[0]/#$HOME/\$HOME}"
+      echo "  ✓ Using existing Claude profile: $claude_config_dir"
+      echo "    (shares login & plugins — no extra /login needed)"
+    else
+      echo "  Multiple Claude profiles found. Pick one — the agent will share"
+      echo "  its login, plugins and MCP config."
+      local i=1 c
+      for c in "${candidates[@]}"; do
+        echo "    $i) $c"
+        i=$((i+1))
+      done
+      echo "    $i) Create a NEW isolated profile at \$HOME/.claude-${agent_name}"
+      echo "       ⚠  requires /login inside tmux after install"
+      local choice
+      while true; do
+        choice=$(ask "Choice" "1")
+        [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$i" ] && break
+        echo "  Invalid choice: $choice"
+      done
+      if [ "$choice" -lt "$i" ]; then
+        claude_config_dir="${candidates[$((choice-1))]/#$HOME/\$HOME}"
+      else
+        claude_config_dir="\$HOME/.claude-${agent_name}"
+        claude_profile_new="true"
+      fi
+    fi
+  fi
+  echo ""
+
   # ── 3.5 GitHub fork (template sync) ─────────────────
   echo "▸ GitHub fork (template sync)"
   echo "  Creating a fork lets you:"
@@ -360,6 +417,7 @@ run_wizard() {
     echo " 10) Host:              $deploy_host"
     echo " 11) Destination:       $deploy_ws"
     echo " 12) Install service:   $deploy_svc"
+    echo "     Claude profile:   $claude_config_dir$([ "$claude_profile_new" = true ] && echo " (new — /login required)")"
     echo " 13) Heartbeat notif:   $notify_channel"
     echo " 14) Heartbeat enabled: $hb_enabled"
     [ "$hb_enabled" = "true" ] && echo " 15) Heartbeat interval: $hb_interval"
@@ -459,6 +517,10 @@ deployment:
   workspace: "$deploy_ws"
   install_service: $deploy_svc
   claude_cli: "$(detect_claude_cli)"
+
+claude:
+  config_dir: "$claude_config_dir"
+  profile_new: $claude_profile_new
 
 scaffold:
   template_url: "$template_url"
@@ -632,6 +694,11 @@ render_next_steps() {
   fi
 
   render_load_context "$dest/agent.yml"
+  # Expand $HOME / ~ in the stored profile path for display
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    export CLAUDE_CONFIG_DIR=$(eval echo "$CLAUDE_CONFIG_DIR")
+  fi
+  export CLAUDE_PROFILE_NEW="${CLAUDE_PROFILE_NEW:-false}"
   render_to_file "$template" "$dest/NEXT_STEPS.md"
 
   echo ""
@@ -864,6 +931,17 @@ regenerate() {
   else
     export NOTIFICATIONS_CHANNEL_IS_TELEGRAM=false
   fi
+
+  # Claude profile: expand $HOME / ~ in the stored path. Backwards compat:
+  # agents written before the claude.* section default to ~/.claude-personal.
+  if [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+    export CLAUDE_CONFIG_DIR="$HOME/.claude-personal"
+    export CLAUDE_PROFILE_NEW="false"
+  else
+    export CLAUDE_CONFIG_DIR=$(eval echo "$CLAUDE_CONFIG_DIR")
+    export CLAUDE_PROFILE_NEW="${CLAUDE_PROFILE_NEW:-false}"
+  fi
+  export TELEGRAM_STATE_DIR="${CLAUDE_CONFIG_DIR}/channels/telegram-${AGENT_NAME}"
 
   local agent_name="$AGENT_NAME"
   local workspace

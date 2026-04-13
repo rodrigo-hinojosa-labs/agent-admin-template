@@ -4,11 +4,11 @@
 
 SESSION="{{AGENT_NAME}}"
 WORKDIR="{{DEPLOYMENT_WORKSPACE}}"
-CLAUDE_CMD="CLAUDE_CONFIG_DIR=$HOME/.claude-personal TELEGRAM_STATE_DIR=$HOME/.claude-personal/channels/telegram-{{AGENT_NAME}} claude --channels plugin:telegram@claude-plugins-official"
+CLAUDE_CMD="CLAUDE_CONFIG_DIR={{CLAUDE_CONFIG_DIR}} TELEGRAM_STATE_DIR={{TELEGRAM_STATE_DIR}} claude --channels plugin:telegram@claude-plugins-official"
 
 export PATH="$HOME/.nvm/versions/node/v24.14.1/bin:$HOME/.local/bin:$HOME/.bun/bin:/usr/local/bin:/usr/bin:/bin"
-export CLAUDE_CONFIG_DIR="$HOME/.claude-personal"
-export TELEGRAM_STATE_DIR="$HOME/.claude-personal/channels/telegram-{{AGENT_NAME}}"
+export CLAUDE_CONFIG_DIR="{{CLAUDE_CONFIG_DIR}}"
+export TELEGRAM_STATE_DIR="{{TELEGRAM_STATE_DIR}}"
 
 CRASH_COUNT=0
 CRASH_WINDOW_START=$(date +%s)

@@ -2,6 +2,23 @@
 
 Hi {{USER_NICKNAME}}. Your agent is ready at `{{DEPLOYMENT_WORKSPACE}}`.
 
+{{#if CLAUDE_PROFILE_NEW}}
+## ⚠ Claude login required before first run
+
+This agent uses a **new isolated** Claude profile at `{{CLAUDE_CONFIG_DIR}}`.
+It has no credentials yet, so the service will get stuck on the login/theme
+wizard on first start. Do this **once** before enabling the service:
+
+```bash
+tmux new-session -d -s {{AGENT_NAME}}-setup "CLAUDE_CONFIG_DIR={{CLAUDE_CONFIG_DIR}} {{DEPLOYMENT_CLAUDE_CLI}}"
+tmux attach -t {{AGENT_NAME}}-setup
+# inside tmux: run /login, pick your theme, then Ctrl-b d to detach
+tmux kill-session -t {{AGENT_NAME}}-setup
+```
+
+After that, the service/launchd unit will start cleanly.
+
+{{/if}}
 ## Go to the workspace
 
 ```bash

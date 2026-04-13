@@ -15,7 +15,8 @@
     <dict>
         <key>HOME</key><string>{{HOME_DIR}}</string>
         <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:{{HOME_DIR}}/.local/bin:{{HOME_DIR}}/.bun/bin:/usr/bin:/bin</string>
-        <key>CLAUDE_CONFIG_DIR</key><string>{{HOME_DIR}}/.claude-personal</string>
+        <key>CLAUDE_CONFIG_DIR</key><string>{{CLAUDE_CONFIG_DIR}}</string>
+        <key>TELEGRAM_STATE_DIR</key><string>{{TELEGRAM_STATE_DIR}}</string>
     </dict>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key>

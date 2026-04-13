@@ -106,11 +106,21 @@ cd <destination>
 ./setup.sh --uninstall --nuke --delete-fork --yes   # full teardown incl. GitHub fork (irreversible)
 ```
 
+## Claude profile (config dir)
+
+The agent runs Claude Code with `CLAUDE_CONFIG_DIR` pointing at a directory that holds the login, plugins and MCP config. The wizard picks this for you:
+
+- **Auto-inherit** — if the wizard is launched from a Claude Code session that already has `$CLAUDE_CONFIG_DIR` set (agentic mode), the agent inherits that profile verbatim. No extra `/login` needed.
+- **Existing profile** — if you have `~/.claude`, `~/.claude-personal`, `~/.claude-enterprise` (or similar) already, the wizard offers them as a pick-list. The agent shares login + plugins with whichever you choose.
+- **New isolated** — explicit opt-in. The wizard creates `~/.claude-<agent>` and flags that you'll need to run `/login` once inside the tmux session after install. `NEXT_STEPS.md` also spells out the exact commands.
+
+The choice is stored at `claude.config_dir` in `agent.yml`. Edit it and run `./setup.sh --regenerate` to switch profiles on an existing agent.
+
 ## Fork-based workflow
 
 When the wizard creates a fork (default when you answer `Y` to *"Create a GitHub fork?"*), the destination is a git repo pointing at:
 
-- `origin` → your fork (e.g. `rodri-agents/<agent>-<host>`)
+- `origin` → your fork (e.g. `rodri-agents/<agent>-agent`)
 - `upstream` → the template repo (e.g. `rodrigo-hinojosa-labs/agent-admin-template`)
 
 The live branch is named `<host>-<agent>-v<N>/live` (e.g. `ferrari-demo-1/live`). The number increments from existing `*-*-v*/live` branches on the fork so scaffolding the same agent on a new host gives you `v2`, `v3`, etc.

@@ -49,6 +49,12 @@ HOST=""                          # vacío = hostname -s del host actual
 DESTINATION="$HOME/Claude/Agents/linus"
 INSTALL_SERVICE="y"              # y | n
 
+# Perfil de Claude: si lo dejas vacío, el wizard auto-hereda el
+# $CLAUDE_CONFIG_DIR de la sesión actual. Sólo se usa si la wizard pregunta
+# (cuando hay múltiples ~/.claude* y no hay $CLAUDE_CONFIG_DIR). Pon el
+# número de la opción, ej "1" para la primera candidata existente.
+CLAUDE_PROFILE_CHOICE=""         # vacío = auto, "1".."N" = elegir candidato
+
 FORK_ENABLED="y"                 # y | n — si n, ignora todos los FORK_*
 FORK_OWNER="rodri-agents"        # usuario u organización
 FORK_NAME=""                     # vacío = <agent>-agent (compartido entre hosts; las branches llevan el host)
@@ -84,6 +90,7 @@ Luego:
    - Agent identity: AGENT_NAME, DISPLAY_NAME, ROLE, VIBE
    - About you: USER_NAME, NICKNAME, TIMEZONE, EMAIL, LANGUAGE
    - Deployment: HOST, DESTINATION, INSTALL_SERVICE
+   - Perfil de Claude: sólo pregunta si hay múltiples ~/.claude* Y $CLAUDE_CONFIG_DIR no está seteado. Si pregunta, pasa CLAUDE_PROFILE_CHOICE (default "1" = primer perfil existente)
    - Fork: FORK_ENABLED [si y: FORK_OWNER, FORK_NAME, FORK_PRIVATE, TEMPLATE_URL, FORK_PAT]
    - Heartbeat notifications: HEARTBEAT_NOTIF
    - MCPs: ATLASSIAN_ENABLED [si y: loop atlassian], GITHUB_MCP_ENABLED [si y: email + PAT]

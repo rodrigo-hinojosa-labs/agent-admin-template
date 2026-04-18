@@ -66,3 +66,10 @@ teardown() { teardown_tmp_dir; }
   result=$(render_template "$REPO_ROOT/modules/systemd-host-docker.service.tpl")
   [[ "$result" == *"Description=DockBot 🐳 (Docker)"* ]]
 }
+
+@test "crontab.tpl contains heartbeat invocation against workspace" {
+  # The runtime uses envsubst, but shape is the same: $AGENT_NAME + cron schedule.
+  content=$(< "$REPO_ROOT/docker/crontab.tpl")
+  [[ "$content" == *"/workspace/scripts/heartbeat/heartbeat.sh"* ]]
+  [[ "$content" == *'${HEARTBEAT_CRON}'* ]]
+}

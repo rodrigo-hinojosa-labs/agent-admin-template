@@ -23,6 +23,8 @@ services:
       - /tmp:size=100m
     restart: unless-stopped
     stop_grace_period: 30s
+    stdin_open: true
+    tty: true
     volumes:
       - ./:/workspace
       - {{DOCKER_STATE_VOLUME}}:/home/agent

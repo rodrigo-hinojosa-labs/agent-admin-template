@@ -161,3 +161,9 @@ teardown() { teardown_tmp_dir; }
   content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
   [[ "$content" == *"exit 0"* ]]
 }
+
+@test "docker-compose.yml.tpl allocates stdin/tty for interactive first-run wizard" {
+  result=$(render_template "$REPO_ROOT/modules/docker-compose.yml.tpl")
+  [[ "$result" == *"stdin_open: true"* ]]
+  [[ "$result" == *"tty: true"* ]]
+}

@@ -18,35 +18,41 @@ teardown() { teardown_tmp_dir; }
 }
 
 # Helper: run wizard piping answers through stdin, with --docker flag.
+# The `install_service` prompt is skipped by the wizard on non-Linux docker
+# runs (host systemd units only make sense on Linux), so on mac we feed one
+# fewer answer.
 run_docker_wizard() {
   local dest="$1"
   cp -r "$REPO_ROOT/scripts" "$REPO_ROOT/modules" "$REPO_ROOT/docker" "$TMP_TEST_DIR/installer/"
   cp "$REPO_ROOT/setup.sh" "$TMP_TEST_DIR/installer/"
   cd "$TMP_TEST_DIR/installer"
-  # Answers: name, display, role, vibe, user_name, nick, tz, email, lang,
-  # host, destination, install_service, fork=n, heartbeat yes, interval, prompt,
-  # defaults yes, atlassian=n, github=n, proceed.
-  ./setup.sh --docker --destination "$dest" <<EOF
-dockbot
-DockBot
-r
-v
-Alice
-Alice
-UTC
-a@b.com
-en
-host
-n
-n
-y
-30m
-ok
-y
-n
-n
-proceed
-EOF
+
+  local answers=(
+    dockbot
+    DockBot
+    r
+    v
+    Alice
+    Alice
+    UTC
+    a@b.com
+    en
+    host
+  )
+  # install_service prompt fires only on Linux in docker mode.
+  [ "$(uname -s)" = "Linux" ] && answers+=(n)
+  answers+=(
+    n        # fork enabled
+    y        # heartbeat enabled
+    30m      # heartbeat interval
+    ok       # heartbeat prompt
+    y        # use default principles
+    n        # atlassian
+    n        # github mcp
+    proceed
+  )
+
+  printf '%s\n' "${answers[@]}" | ./setup.sh --docker --destination "$dest"
 }
 
 @test "--docker wizard does not prompt for Telegram secrets" {

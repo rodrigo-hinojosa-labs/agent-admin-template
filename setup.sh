@@ -230,7 +230,13 @@ run_wizard() {
     default_dest="${installer_parent}/${agent_name}"
     deploy_ws=$(ask "Agent destination directory" "$default_dest")
   fi
-  deploy_svc=$(ask_yn "Install as system service?" "y")
+  if [ "$MODE_DOCKER" = true ] && [ "$(uname -s)" != "Linux" ]; then
+    deploy_svc=false
+    echo "  Host systemd unit: skipped on $(uname -s) (only applicable on Linux;"
+    echo "  Docker Desktop handles container restart on login via 'unless-stopped')."
+  else
+    deploy_svc=$(ask_yn "Install as system service?" "y")
+  fi
   echo ""
 
   # ── 3.1 Claude profile ──────────────────────────────

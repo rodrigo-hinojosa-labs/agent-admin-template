@@ -31,13 +31,13 @@ HOST (e.g. ferrari)
 CONTAINER (agent-admin:latest, one per agent)
 ├── tini (PID 1)
 │   └── entrypoint.sh
-│       ├── first-run check → wizard-gum.sh (interactive)
+│       ├── first-run check → wizard-container.sh (interactive)
 │       └── steady-state   → start_services.sh (watchdog + services)
 │
 ├── /opt/agent-admin/                   ← baked in image (read-only)
 │   ├── entrypoint.sh
 │   ├── scripts/start_services.sh       ← watchdog loop
-│   ├── scripts/wizard-gum.sh           ← first-run prompts
+│   ├── scripts/wizard-container.sh           ← first-run prompts
 │   └── crontab.tpl
 │
 ├── /workspace/                         ← bind-mount (host's ~/agents/<name>)
@@ -85,7 +85,7 @@ On container start, the entrypoint checks for `/workspace/.env`:
 
 ```sh
 if [ ! -f /workspace/.env ] || ! grep -q "TELEGRAM_BOT_TOKEN" /workspace/.env ]; then
-  exec /opt/agent-admin/scripts/wizard-gum.sh --in-container
+  exec /opt/agent-admin/scripts/wizard-container.sh --in-container
 fi
 exec /opt/agent-admin/scripts/start_services.sh
 ```

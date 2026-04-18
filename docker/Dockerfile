@@ -34,10 +34,11 @@ RUN set -eux; \
       aarch64) gum_arch="arm64" ;; \
       *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_linux_${gum_arch}.tar.gz" \
-      | tar -xz -C /tmp; \
-    mv "/tmp/gum_${GUM_VERSION}_linux_${gum_arch}/gum" /usr/local/bin/gum; \
-    rm -rf /tmp/gum_*
+    mkdir -p /tmp/gum; \
+    curl -fsSL "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_Linux_${gum_arch}.tar.gz" \
+      | tar -xz -C /tmp/gum --strip-components=1; \
+    mv /tmp/gum/gum /usr/local/bin/gum; \
+    rm -rf /tmp/gum
 
 # Install Claude Code CLI globally so both root (for first-run chown) and
 # the `agent` user can invoke it.

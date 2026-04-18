@@ -595,6 +595,7 @@ EOF
   [ -n "$atlassian_env_vars" ] && echo "$atlassian_env_vars" >> "$env_file"
   [ "$github_enabled" = "true" ] && echo "GITHUB_PAT=$github_pat" >> "$env_file"
   [ "$fork_enabled" = "true" ] && [ -n "$fork_token" ] && echo "GITHUB_FORK_PAT=$fork_token" >> "$env_file"
+  chmod 0600 "$env_file"
 
   echo ""
   echo "✓ agent.yml and .env written"

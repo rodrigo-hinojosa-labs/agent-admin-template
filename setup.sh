@@ -719,6 +719,12 @@ render_next_steps() {
   fi
 
   render_load_context "$dest/agent.yml"
+
+  if [ "${DEPLOYMENT_MODE:-host}" = "docker" ]; then
+    export DEPLOYMENT_MODE_IS_DOCKER="true"
+  else
+    export DEPLOYMENT_MODE_IS_DOCKER="false"
+  fi
   # Expand $HOME / ~ in the stored profile path for display
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
     export CLAUDE_CONFIG_DIR=$(eval echo "$CLAUDE_CONFIG_DIR")

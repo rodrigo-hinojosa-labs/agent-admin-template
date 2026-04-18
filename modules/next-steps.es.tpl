@@ -45,6 +45,24 @@ git checkout {{SCAFFOLD_FORK_BRANCH}}
 ```
 
 {{/if}}
+{{#if DEPLOYMENT_MODE_IS_DOCKER}}
+## Modo Docker — próximos pasos
+
+Tu agente está configurado como contenedor Docker. Para lanzarlo por primera vez:
+
+    cd {{DEPLOYMENT_WORKSPACE}}
+    docker compose build
+    docker compose up -d
+    docker attach {{AGENT_NAME}}
+
+El wizard de primer arranque del contenedor pedirá tu token de bot de Telegram y chat id, escribirá /workspace/.env (0600) y saldrá. La política `unless-stopped` de Docker reinicia el contenedor en estado estable.
+
+Para reconectarte más tarde: `docker exec -it {{AGENT_NAME}} tmux attach -t agent` (Ctrl-b d para salir).
+
+Consulta docs/docker-mode.md para actualización, rollback y desmontaje.
+
+{{/if}}
+{{#unless DEPLOYMENT_MODE_IS_DOCKER}}
 ## Iniciar el agente
 
 ```bash
@@ -141,6 +159,7 @@ systemctl --user restart {{AGENT_NAME}}.service   # si necesitas reiniciar
 ```
 
 {{/if}}
+{{/unless}}
 ## Comandos útiles
 
 ```bash

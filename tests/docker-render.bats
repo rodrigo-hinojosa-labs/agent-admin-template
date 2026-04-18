@@ -144,3 +144,20 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"WINDOW=300"* ]]
   [[ "$content" == *"exit 1"* ]]
 }
+
+@test "wizard-container.sh uses gum for prompts" {
+  content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
+  [[ "$content" == *"gum input"* ]]
+  [[ "$content" == *"--password"* ]]
+}
+
+@test "wizard-container.sh writes .env with 0600 permissions" {
+  content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
+  [[ "$content" == *"chmod 0600"* ]]
+  [[ "$content" == *"/workspace/.env"* ]]
+}
+
+@test "wizard-container.sh exits 0 after writing so Docker restarts the container" {
+  content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
+  [[ "$content" == *"exit 0"* ]]
+}

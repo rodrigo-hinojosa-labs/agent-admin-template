@@ -334,19 +334,24 @@ run_wizard() {
   local notify_channel notify_bot_token="" notify_chat_id=""
   notify_channel=$(ask_choice "Heartbeat notification channel" "none" "none log telegram")
   if [ "$notify_channel" = "telegram" ]; then
-    echo "  Heartbeat will use a dedicated bot (separate from the chat plugin)."
-    echo "  Create it at @BotFather and copy its token."
-    echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
-    notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
-    echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
-    echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
-    notify_chat_id=$(ask "Chat ID (or skip)" "")
-    if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
-      echo ""
-      echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"
-      echo "     until you fill the missing value(s) in .env:"
-      [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
-      [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
+    if [ "$MODE_DOCKER" = true ]; then
+      echo "  Docker mode: Telegram credentials will be collected inside the container"
+      echo "  on first boot. Skipping token/chat_id prompts here."
+    else
+      echo "  Heartbeat will use a dedicated bot (separate from the chat plugin)."
+      echo "  Create it at @BotFather and copy its token."
+      echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
+      notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
+      echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
+      echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
+      notify_chat_id=$(ask "Chat ID (or skip)" "")
+      if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
+        echo ""
+        echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"
+        echo "     until you fill the missing value(s) in .env:"
+        [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
+        [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
+      fi
     fi
   fi
   echo ""
@@ -382,7 +387,11 @@ run_wizard() {
   if [ "$(ask_yn 'Enable GitHub MCP?' 'n')" = "true" ]; then
     github_enabled="true"
     github_email=$(ask "GitHub account email" "$user_email")
-    github_pat=$(ask_secret "GitHub Personal Access Token")
+    if [ "$MODE_DOCKER" = true ]; then
+      echo "  Docker mode: PAT collected inside container on first boot."
+    else
+      github_pat=$(ask_secret "GitHub Personal Access Token")
+    fi
   fi
   echo ""
 
@@ -483,7 +492,16 @@ run_wizard() {
   done
 
   # ── Build YAML fragments before the heredoc ─────────
-  local atlassian_yaml plugins_yaml
+  local atlassian_yaml plugins_yaml docker_yaml=""
+  if [ "$MODE_DOCKER" = true ]; then
+    docker_yaml="
+docker:
+  image_tag: \"agent-admin:latest\"
+  uid: $(id -u)
+  gid: $(id -g)
+  state_volume: \"${agent_name}-state\"
+  base_image: \"alpine:3.20\""
+  fi
   if [ -n "$atlassian_entries" ]; then
     atlassian_yaml="  atlassian:
 $atlassian_entries"
@@ -520,13 +538,14 @@ user:
 deployment:
   host: "$deploy_host"
   workspace: "$deploy_ws"
+  mode: $([ "$MODE_DOCKER" = true ] && echo "docker" || echo "host")
   install_service: $deploy_svc
   claude_cli: "$(detect_claude_cli)"
 
 claude:
   config_dir: "$claude_config_dir"
   profile_new: $claude_profile_new
-
+$docker_yaml
 scaffold:
   template_url: "$template_url"
   fork:

@@ -44,24 +44,6 @@ git checkout {{SCAFFOLD_FORK_BRANCH}}
 ```
 
 {{/if}}
-{{#if DEPLOYMENT_MODE_IS_DOCKER}}
-## Docker mode — next steps
-
-Your agent is scaffolded as a Docker container. To launch it for the first time:
-
-    cd {{DEPLOYMENT_WORKSPACE}}
-    docker compose build
-    docker compose up -d
-    docker attach {{AGENT_NAME}}
-
-The container's first-run wizard will ask for your Telegram bot token and chat id, write /workspace/.env (0600), then exit. Docker's `unless-stopped` policy restarts the container into steady state.
-
-To reconnect later: `docker exec -it {{AGENT_NAME}} tmux attach -t agent` (Ctrl-b d to detach).
-
-See docs/docker-mode.md for upgrade, rollback, and teardown.
-
-{{/if}}
-{{#unless DEPLOYMENT_MODE_IS_DOCKER}}
 ## Start the agent
 
 ```bash
@@ -156,7 +138,6 @@ systemctl --user restart {{AGENT_NAME}}.service   # if you need to restart
 ```
 
 {{/if}}
-{{/unless}}
 ## Useful commands
 
 ```bash

@@ -127,3 +127,18 @@ STUB
   [ "$status" -eq 0 ]
   grep -q "compose down -v" "$TMP_TEST_DIR/docker-calls.log"
 }
+
+@test "--regenerate in docker-mode workspace re-renders docker-compose.yml" {
+  mkdir -p "$TMP_TEST_DIR/installer"
+  local dest="$TMP_TEST_DIR/docker-regen"
+  run run_docker_wizard "$dest"
+  [ "$status" -eq 0 ]
+  rm "$dest/docker-compose.yml"
+  [ ! -f "$dest/docker-compose.yml" ]
+
+  cd "$dest"
+  run ./setup.sh --regenerate
+  [ "$status" -eq 0 ]
+  [ -f "$dest/docker-compose.yml" ]
+  grep -q "dockbot:" "$dest/docker-compose.yml"
+}

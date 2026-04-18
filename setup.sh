@@ -1068,6 +1068,7 @@ install_service_docker() {
   local unit_file="/etc/systemd/system/agent-${agent_name}.service"
   local staged
   staged=$(mktemp)
+  trap 'rm -f "$staged"' RETURN
   render_to_file "$modules_dir/systemd-host-docker.service.tpl" "$staged"
 
   if sudo -n true 2>/dev/null; then
@@ -1081,7 +1082,6 @@ install_service_docker() {
     echo "    install manually: sudo cp ./agent-${agent_name}.service ${unit_file}"
     echo "                      sudo systemctl daemon-reload && sudo systemctl enable --now agent-${agent_name}.service"
   fi
-  rm -f "$staged"
 }
 
 # Print (do not execute) suggested plugin install commands so the user can run

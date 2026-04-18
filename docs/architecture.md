@@ -71,3 +71,7 @@ user → setup.sh wizard → writes agent.yml + .env
 - `tests/notifiers.bats` — heartbeat notifier drivers
 - `tests/regenerate.bats` — regenerate flow
 - `tests/e2e-smoke.bats` — end-to-end wizard → functional agent
+
+## See also
+
+- [Docker mode architecture](docker-mode-architecture.md) — containerized deployment variant.

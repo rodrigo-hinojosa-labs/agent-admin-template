@@ -58,6 +58,10 @@ Prefer to drive setup from inside a Claude Code session instead of answering pro
 - 🇪🇸 [Modo agéntico — guía en español](docs/agentic-quickstart.es.md)
 - 🇬🇧 [Agentic mode — guide in English](docs/agentic-quickstart.en.md)
 
+### Docker mode (optional)
+
+For a portable, self-contained deployment, scaffold with `./setup.sh --docker`. The agent runs in an alpine container, with its workspace bind-mounted and all internal state on a single named volume. See [docs/docker-mode.md](docs/docker-mode.md) for setup, upgrade, and teardown.
+
 ## All flags
 
 | Flag | Effect |

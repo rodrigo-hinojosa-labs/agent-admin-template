@@ -100,3 +100,28 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"/sbin/tini"* ]]
   [[ "$content" == *"/opt/agent-admin/entrypoint.sh"* ]]
 }
+
+@test "entrypoint.sh chowns /home/agent when owned by root" {
+  content=$(< "$REPO_ROOT/docker/entrypoint.sh")
+  [[ "$content" == *"chown -R agent:agent /home/agent"* ]]
+}
+
+@test "entrypoint.sh renders crontab from envsubst template" {
+  content=$(< "$REPO_ROOT/docker/entrypoint.sh")
+  [[ "$content" == *"envsubst"* ]]
+  [[ "$content" == *"/opt/agent-admin/crontab.tpl"* ]]
+  [[ "$content" == *"/etc/crontabs/agent"* ]]
+}
+
+@test "entrypoint.sh routes to wizard when .env missing TELEGRAM_BOT_TOKEN" {
+  content=$(< "$REPO_ROOT/docker/entrypoint.sh")
+  [[ "$content" == *"/workspace/.env"* ]]
+  [[ "$content" == *"TELEGRAM_BOT_TOKEN"* ]]
+  [[ "$content" == *"wizard-container.sh"* ]]
+}
+
+@test "entrypoint.sh execs start_services.sh as agent user" {
+  content=$(< "$REPO_ROOT/docker/entrypoint.sh")
+  [[ "$content" == *"su-exec agent"* || "$content" == *"exec su agent"* ]]
+  [[ "$content" == *"start_services.sh"* ]]
+}

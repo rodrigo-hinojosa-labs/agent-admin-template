@@ -16,7 +16,7 @@ crond -b -L /workspace/claude.cron.log
 # ── 2. tmux + claude ──────────────────────────────────────
 SESSION="agent"
 WORKDIR="/workspace"
-CLAUDE_CMD='CLAUDE_CONFIG_DIR=/home/agent/.claude-personal claude --channels plugin:telegram@claude-plugins-official'
+CLAUDE_CMD='CLAUDE_CONFIG_DIR=/home/agent/.claude claude --channels plugin:telegram@claude-plugins-official'
 
 MAX_CRASHES=5
 WINDOW=300

@@ -135,7 +135,7 @@ teardown() { teardown_tmp_dir; }
 @test "start_services.sh starts tmux session named 'agent'" {
   content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
   [[ "$content" == *'tmux new-session -d -s agent'* ]]
-  [[ "$content" == *"CLAUDE_CONFIG_DIR=/home/agent/.claude-personal"* ]]
+  [[ "$content" == *"CLAUDE_CONFIG_DIR=/home/agent/.claude"* ]]
 }
 
 @test "start_services.sh has 5-crashes-in-5-minutes backoff" {

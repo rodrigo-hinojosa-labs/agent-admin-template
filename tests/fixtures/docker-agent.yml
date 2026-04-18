@@ -24,7 +24,7 @@ docker:
   state_volume: "dockbot-state"
   base_image: "alpine:3.20"
 claude:
-  config_dir: "/home/agent/.claude-personal"
+  config_dir: "/home/agent/.claude"
   profile_new: true
 notifications:
   channel: telegram

@@ -241,12 +241,19 @@ run_wizard() {
   echo ""
 
   # ── 3.1 Claude profile ──────────────────────────────
-  # Picks an existing authenticated Claude config dir when possible so the
-  # agent can start without a second /login. Falls back to creating a new
-  # isolated profile only if the user asks for it (or if none exist).
+  # In docker mode the profile always lives inside the container at
+  # /home/agent/.claude (on the named state volume), isolated from any host
+  # profile — so skip the host-side picker entirely and require one /login
+  # inside tmux after first boot.
   echo "▸ Claude profile"
   local claude_config_dir="" claude_profile_new="false"
-  if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ -d "$CLAUDE_CONFIG_DIR" ]; then
+  if [ "$MODE_DOCKER" = true ]; then
+    claude_config_dir="/home/agent/.claude"
+    claude_profile_new="true"
+    echo "  Docker mode: agent uses /home/agent/.claude inside the container,"
+    echo "  isolated on the named state volume. Run /login inside tmux once"
+    echo "  after the container comes up."
+  elif [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ -d "$CLAUDE_CONFIG_DIR" ]; then
     claude_config_dir="$CLAUDE_CONFIG_DIR"
     echo "  ✓ Using the Claude profile of the current session: $claude_config_dir"
     echo "    (inherited from \$CLAUDE_CONFIG_DIR — no extra /login needed)"

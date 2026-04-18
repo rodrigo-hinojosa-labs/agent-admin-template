@@ -105,3 +105,25 @@ EOF
   [ ! -f "$HOME/Library/LaunchAgents/local.dockbot.plist" ]
   [ ! -f "$HOME/.local/bin/dockbot.sh" ]
 }
+
+@test "--uninstall in docker-mode workspace runs docker compose down -v (dry)" {
+  mkdir -p "$TMP_TEST_DIR/installer"
+  local dest="$TMP_TEST_DIR/docker-uninstall"
+  run run_docker_wizard "$dest"
+  [ "$status" -eq 0 ]
+
+  # Stub docker so the test does not need a daemon. Record invocations.
+  mkdir -p "$TMP_TEST_DIR/bin"
+  cat > "$TMP_TEST_DIR/bin/docker" <<'STUB'
+#!/bin/bash
+echo "$@" >> "$TMP_TEST_DIR/docker-calls.log"
+exit 0
+STUB
+  chmod +x "$TMP_TEST_DIR/bin/docker"
+  export PATH="$TMP_TEST_DIR/bin:$PATH"
+
+  cd "$dest"
+  run ./setup.sh --uninstall --yes
+  [ "$status" -eq 0 ]
+  grep -q "compose down -v" "$TMP_TEST_DIR/docker-calls.log"
+}

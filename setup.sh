@@ -1131,6 +1131,7 @@ uninstall() {
     exit 1
   fi
 
+  local mode="${DEPLOYMENT_MODE:-host}"
   local os
   os=$(uname -s | tr '[:upper:]' '[:lower:]')
 
@@ -1140,18 +1141,26 @@ uninstall() {
   echo "═══════════════════════════════════════════════════"
   echo ""
   echo "This will remove:"
-  echo "  - tmux session: ${agent_name} (if running)"
-  case "$os" in
-    linux)
-      echo "  - ~/.local/bin/${agent_name}.sh"
-      echo "  - ~/.config/systemd/user/${agent_name}.service (stop + disable)"
-      echo "  - ~/.config/systemd/user/${agent_name}-heartbeat.{service,timer} (if present)"
+  case "$mode" in
+    docker)
+      echo "  - docker compose down -v (stops container, removes ${agent_name}-state volume)"
+      echo "  - /etc/systemd/system/agent-${agent_name}.service (if present)"
       ;;
-    darwin)
-      echo "  - ~/.local/bin/${agent_name}.sh"
-      echo "  - ~/Library/LaunchAgents/local.${agent_name}.plist (unload + delete)"
-      echo "  - ~/Library/LaunchAgents/local.${agent_name}-heartbeat.plist (if present)"
-      echo "  - ~/.local/share/${agent_name}/ (log directory)"
+    *)
+      echo "  - tmux session: ${agent_name} (if running)"
+      case "$os" in
+        linux)
+          echo "  - ~/.local/bin/${agent_name}.sh"
+          echo "  - ~/.config/systemd/user/${agent_name}.service (stop + disable)"
+          echo "  - ~/.config/systemd/user/${agent_name}-heartbeat.{service,timer} (if present)"
+          ;;
+        darwin)
+          echo "  - ~/.local/bin/${agent_name}.sh"
+          echo "  - ~/Library/LaunchAgents/local.${agent_name}.plist (unload + delete)"
+          echo "  - ~/Library/LaunchAgents/local.${agent_name}-heartbeat.plist (if present)"
+          echo "  - ~/.local/share/${agent_name}/ (log directory)"
+          ;;
+      esac
       ;;
   esac
   echo "  - Generated repo files: CLAUDE.md, .mcp.json, .env.example,"
@@ -1181,51 +1190,74 @@ uninstall() {
   echo ""
   echo "▸ Stopping services"
 
-  # Kill tmux session if present.
-  if command -v tmux &>/dev/null; then
-    tmux kill-session -t "$agent_name" 2>/dev/null && echo "  ✓ killed tmux session: ${agent_name}" || true
+  if [ "$mode" = "docker" ]; then
+    # --- Docker-mode teardown ---
+    if command -v docker &>/dev/null; then
+      (cd "$SCRIPT_DIR" && docker compose down -v 2>/dev/null) && \
+        echo "  ✓ docker compose down -v (container + state volume removed)" || \
+        echo "  ⚠ docker compose down -v failed or already down"
+    else
+      echo "  ⚠ docker not on PATH — skipping container teardown"
+    fi
+    local unit_file="/etc/systemd/system/agent-${agent_name}.service"
+    if [ -f "$unit_file" ]; then
+      if sudo -n true 2>/dev/null; then
+        sudo systemctl disable --now "agent-${agent_name}.service" 2>/dev/null || true
+        sudo rm -f "$unit_file" && echo "  ✓ removed $unit_file" || true
+        sudo systemctl daemon-reload 2>/dev/null || true
+      else
+        echo "  ◦ $unit_file present — remove manually with sudo"
+      fi
+    fi
+    rm -f "$SCRIPT_DIR/docker-compose.yml" && echo "  ✓ docker-compose.yml" || true
+  else
+    # --- Host-mode teardown (unchanged) ---
+    # Kill tmux session if present.
+    if command -v tmux &>/dev/null; then
+      tmux kill-session -t "$agent_name" 2>/dev/null && echo "  ✓ killed tmux session: ${agent_name}" || true
+    fi
+
+    case "$os" in
+      linux)
+        # Main service
+        systemctl --user stop "${agent_name}.service" 2>/dev/null && echo "  ✓ stopped ${agent_name}.service" || true
+        systemctl --user disable "${agent_name}.service" 2>/dev/null && echo "  ✓ disabled ${agent_name}.service" || true
+
+        # Heartbeat timer (may or may not exist; launch.sh install uses {agent}-heartbeat)
+        systemctl --user stop "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ stopped ${agent_name}-heartbeat.timer" || true
+        systemctl --user disable "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ disabled ${agent_name}-heartbeat.timer" || true
+
+        echo ""
+        echo "▸ Removing files"
+        rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
+        rm -f "$HOME/.config/systemd/user/${agent_name}.service" && echo "  ✓ ~/.config/systemd/user/${agent_name}.service" || true
+        rm -f "$HOME/.config/systemd/user/${agent_name}-heartbeat.service" \
+              "$HOME/.config/systemd/user/${agent_name}-heartbeat.timer" 2>/dev/null && \
+          echo "  ✓ heartbeat service/timer units (if any)" || true
+
+        systemctl --user daemon-reload 2>/dev/null || true
+        ;;
+      darwin)
+        local plist="$HOME/Library/LaunchAgents/local.${agent_name}.plist"
+        local hb_plist="$HOME/Library/LaunchAgents/local.${agent_name}-heartbeat.plist"
+
+        for p in "$plist" "$hb_plist"; do
+          [ -f "$p" ] || continue
+          launchctl bootout "gui/$(id -u)" "$p" 2>/dev/null || \
+            launchctl unload "$p" 2>/dev/null || true
+          echo "  ✓ unloaded $(basename "$p" .plist)"
+        done
+
+        echo ""
+        echo "▸ Removing files"
+        rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
+        for p in "$plist" "$hb_plist"; do
+          [ -f "$p" ] && rm -f "$p" && echo "  ✓ $p" || true
+        done
+        rm -rf "$HOME/.local/share/${agent_name}" 2>/dev/null && echo "  ✓ ~/.local/share/${agent_name}/" || true
+        ;;
+    esac
   fi
-
-  case "$os" in
-    linux)
-      # Main service
-      systemctl --user stop "${agent_name}.service" 2>/dev/null && echo "  ✓ stopped ${agent_name}.service" || true
-      systemctl --user disable "${agent_name}.service" 2>/dev/null && echo "  ✓ disabled ${agent_name}.service" || true
-
-      # Heartbeat timer (may or may not exist; launch.sh install uses {agent}-heartbeat)
-      systemctl --user stop "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ stopped ${agent_name}-heartbeat.timer" || true
-      systemctl --user disable "${agent_name}-heartbeat.timer" 2>/dev/null && echo "  ✓ disabled ${agent_name}-heartbeat.timer" || true
-
-      echo ""
-      echo "▸ Removing files"
-      rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
-      rm -f "$HOME/.config/systemd/user/${agent_name}.service" && echo "  ✓ ~/.config/systemd/user/${agent_name}.service" || true
-      rm -f "$HOME/.config/systemd/user/${agent_name}-heartbeat.service" \
-            "$HOME/.config/systemd/user/${agent_name}-heartbeat.timer" 2>/dev/null && \
-        echo "  ✓ heartbeat service/timer units (if any)" || true
-
-      systemctl --user daemon-reload 2>/dev/null || true
-      ;;
-    darwin)
-      local plist="$HOME/Library/LaunchAgents/local.${agent_name}.plist"
-      local hb_plist="$HOME/Library/LaunchAgents/local.${agent_name}-heartbeat.plist"
-
-      for p in "$plist" "$hb_plist"; do
-        [ -f "$p" ] || continue
-        launchctl bootout "gui/$(id -u)" "$p" 2>/dev/null || \
-          launchctl unload "$p" 2>/dev/null || true
-        echo "  ✓ unloaded $(basename "$p" .plist)"
-      done
-
-      echo ""
-      echo "▸ Removing files"
-      rm -f "$HOME/.local/bin/${agent_name}.sh" && echo "  ✓ ~/.local/bin/${agent_name}.sh" || true
-      for p in "$plist" "$hb_plist"; do
-        [ -f "$p" ] && rm -f "$p" && echo "  ✓ $p" || true
-      done
-      rm -rf "$HOME/.local/share/${agent_name}" 2>/dev/null && echo "  ✓ ~/.local/share/${agent_name}/" || true
-      ;;
-  esac
 
   # ── Delete the GitHub fork (opt-in, irreversible) ────────────────
   if [ "$UNINSTALL_DELETE_FORK" = true ]; then

@@ -880,12 +880,15 @@ scaffold_destination() {
   for item in setup.sh .gitignore LICENSE; do
     [ -e "$src_dir/$item" ] && cp "$src_dir/$item" "$dest/"
   done
-  for item in modules scripts; do
+  for item in modules scripts docker; do
     [ -d "$src_dir/$item" ] && cp -R "$src_dir/$item" "$dest/"
   done
   # Ensure setup.sh is executable
   chmod +x "$dest/setup.sh"
   find "$dest/scripts" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+  if [ -d "$dest/docker" ]; then
+    find "$dest/docker" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+  fi
 
   # Move agent.yml + .env (transactional: copy, verify, delete source)
   cp "$agent_yml" "$dest/agent.yml" && [ -f "$dest/agent.yml" ] && rm "$agent_yml"
@@ -998,6 +1001,13 @@ regenerate() {
   render_to_file "$modules_dir/env-example.tpl" "$SCRIPT_DIR/.env.example"
   echo "  ✓ .env.example"
 
+  # Docker mode: render docker-compose.yml and optionally the host systemd
+  # unit; skip the host-side launcher scripts.
+  if [ "${DEPLOYMENT_MODE:-host}" = "docker" ]; then
+    render_to_file "$modules_dir/docker-compose.yml.tpl" "$SCRIPT_DIR/docker-compose.yml"
+    echo "  ✓ docker-compose.yml"
+  fi
+
   # heartbeat.conf
   if [ "${FEATURES_HEARTBEAT_ENABLED:-false}" = "true" ]; then
     render_to_file "$modules_dir/heartbeat-conf.tpl" "$SCRIPT_DIR/scripts/heartbeat/heartbeat.conf"
@@ -1005,7 +1015,11 @@ regenerate() {
   fi
 
   if [ "${DEPLOYMENT_INSTALL_SERVICE:-false}" = "true" ]; then
-    install_service "$os" "$agent_name" "$workspace"
+    if [ "${DEPLOYMENT_MODE:-host}" = "docker" ]; then
+      install_service_docker "$agent_name" "$workspace"
+    else
+      install_service "$os" "$agent_name" "$workspace"
+    fi
   fi
 
   echo ""
@@ -1042,6 +1056,31 @@ install_service() {
       echo "  → load with: launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/local.${agent_name}.plist"
       ;;
   esac
+}
+
+# Docker mode: render a system-wide systemd unit that wraps `docker compose up -d`.
+# This requires sudo to install; if the user did not grant it, we print the
+# rendered file and instructions for a manual install.
+install_service_docker() {
+  local agent_name="$1" workspace="$2"
+  local modules_dir="$SCRIPT_DIR/modules"
+  local unit_file="/etc/systemd/system/agent-${agent_name}.service"
+  local staged
+  staged=$(mktemp)
+  render_to_file "$modules_dir/systemd-host-docker.service.tpl" "$staged"
+
+  if sudo -n true 2>/dev/null; then
+    sudo cp "$staged" "$unit_file"
+    sudo systemctl daemon-reload
+    echo "  ✓ $unit_file"
+    echo "  → enable with: sudo systemctl enable --now agent-${agent_name}.service"
+  else
+    cp "$staged" "$SCRIPT_DIR/agent-${agent_name}.service"
+    echo "  ◦ agent-${agent_name}.service staged in workspace (sudo unavailable)"
+    echo "    install manually: sudo cp ./agent-${agent_name}.service ${unit_file}"
+    echo "                      sudo systemctl daemon-reload && sudo systemctl enable --now agent-${agent_name}.service"
+  fi
+  rm -f "$staged"
 }
 
 # Print (do not execute) suggested plugin install commands so the user can run

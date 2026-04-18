@@ -72,3 +72,36 @@ EOF
   [ "$(yq '.docker.state_volume' "$dest/agent.yml")" = "dockbot-state" ]
   [ "$(yq '.docker.image_tag' "$dest/agent.yml")" = "agent-admin:latest" ]
 }
+
+@test "--docker scaffold copies docker/ directory into destination" {
+  mkdir -p "$TMP_TEST_DIR/installer"
+  local dest="$TMP_TEST_DIR/docker-scaffold"
+  run run_docker_wizard "$dest"
+  [ "$status" -eq 0 ]
+  [ -d "$dest/docker" ]
+  [ -f "$dest/docker/Dockerfile" ]
+  [ -f "$dest/docker/entrypoint.sh" ]
+  [ -x "$dest/docker/entrypoint.sh" ]
+  [ -f "$dest/docker/scripts/start_services.sh" ]
+}
+
+@test "--docker scaffold writes docker-compose.yml at workspace root" {
+  mkdir -p "$TMP_TEST_DIR/installer"
+  local dest="$TMP_TEST_DIR/docker-compose-out"
+  run run_docker_wizard "$dest"
+  [ "$status" -eq 0 ]
+  [ -f "$dest/docker-compose.yml" ]
+  grep -q "dockbot:" "$dest/docker-compose.yml"
+  grep -q "dockbot-state:" "$dest/docker-compose.yml"
+}
+
+@test "--docker scaffold does NOT render agent-script-*.sh on host" {
+  mkdir -p "$TMP_TEST_DIR/installer"
+  local dest="$TMP_TEST_DIR/docker-no-host-launcher"
+  run run_docker_wizard "$dest"
+  [ "$status" -eq 0 ]
+  # No user-level systemd unit in docker mode.
+  [ ! -f "$HOME/.config/systemd/user/dockbot.service" ]
+  [ ! -f "$HOME/Library/LaunchAgents/local.dockbot.plist" ]
+  [ ! -f "$HOME/.local/bin/dockbot.sh" ]
+}

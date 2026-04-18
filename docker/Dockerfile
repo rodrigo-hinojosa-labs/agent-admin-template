@@ -45,8 +45,19 @@ RUN set -eux; \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Create the non-root agent user matching host UID/GID.
-RUN addgroup -g "$GID" agent \
- && adduser -D -u "$UID" -G agent -s /bin/bash agent
+# Release pre-existing groups/users that already hold the target GID/UID
+# (e.g. alpine ships dialout=20, which collides with mac's staff=20) so
+# `agent` can claim the exact host numeric ownership — required for bind-
+# mount writes to show the expected owner on the host.
+RUN set -eux; \
+    if getent group "$GID" >/dev/null; then \
+      delgroup "$(getent group "$GID" | cut -d: -f1)"; \
+    fi; \
+    if getent passwd "$UID" >/dev/null; then \
+      deluser "$(getent passwd "$UID" | cut -d: -f1)"; \
+    fi; \
+    addgroup -g "$GID" agent; \
+    adduser -D -u "$UID" -G agent -s /bin/bash agent
 
 # Copy in the in-image scripts (baked at build time, read-only at runtime).
 COPY entrypoint.sh /opt/agent-admin/entrypoint.sh

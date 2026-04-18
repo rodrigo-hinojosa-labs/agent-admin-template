@@ -701,11 +701,14 @@ sync_template() {
 # print it to stdout. Templates live at modules/next-steps.{es,en}.tpl.
 render_next_steps() {
   local dest="$1"
-  local lang template
+  local lang template mode suffix
   lang=$(yq '.user.language // "en"' "$dest/agent.yml")
+  mode=$(yq '.deployment.mode // "host"' "$dest/agent.yml")
+  suffix=""
+  [ "$mode" = "docker" ] && suffix="-docker"
   case "$lang" in
-    es|mixed) template="$dest/modules/next-steps.es.tpl" ;;
-    *)        template="$dest/modules/next-steps.en.tpl" ;;
+    es|mixed) template="$dest/modules/next-steps${suffix}.es.tpl" ;;
+    *)        template="$dest/modules/next-steps${suffix}.en.tpl" ;;
   esac
   [ ! -f "$template" ] && return 0
 

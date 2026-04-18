@@ -4,6 +4,15 @@
 # gum renders its interactive UI to stderr and emits the captured value to
 # stdout. Do NOT silence stderr here — that would hide the prompt and make
 # the wizard look frozen. The `|| fallback` branches catch Ctrl+C / errors.
+#
+# After each prompt returns we echo `  › prompt: answer` to stderr so the
+# Q/A history stays in the terminal scrollback (gum clears its widget line
+# when done). Stdout stays clean so callers can still capture the value.
+
+# _log_qa PROMPT ANSWER  → stderr record of the exchange
+_log_qa() {
+  printf '  › %s: %s\n' "$1" "$2" >&2
+}
 
 # ask PROMPT DEFAULT → user input or default
 ask() {
@@ -13,7 +22,9 @@ ask() {
   else
     result=$("$GUM" input --prompt "$prompt: " --placeholder "...") || result=""
   fi
-  echo "${result:-$default}"
+  result="${result:-$default}"
+  _log_qa "$prompt" "$result"
+  echo "$result"
 }
 
 # ask_required PROMPT → repeats until non-empty
@@ -22,6 +33,7 @@ ask_required() {
   while [ -z "$result" ]; do
     result=$("$GUM" input --prompt "$prompt: ") || result=""
   done
+  _log_qa "$prompt" "$result"
   echo "$result"
 }
 
@@ -35,16 +47,24 @@ ask_yn() {
     default_flag="--default=no"
   fi
   if "$GUM" confirm "$prompt" $default_flag; then
+    _log_qa "$prompt" "yes"
     echo "true"
   else
+    _log_qa "$prompt" "no"
     echo "false"
   fi
 }
 
 # ask_secret PROMPT → reads without echoing
 ask_secret() {
-  local prompt="$1"
-  "$GUM" input --password --prompt "$prompt: " || echo ""
+  local prompt="$1" result
+  result=$("$GUM" input --password --prompt "$prompt: ") || result=""
+  if [ -n "$result" ]; then
+    _log_qa "$prompt" "********"
+  else
+    _log_qa "$prompt" "(skipped)"
+  fi
+  echo "$result"
 }
 
 # ask_choice PROMPT DEFAULT OPTIONS(space-separated) → chosen option
@@ -57,5 +77,7 @@ ask_choice() {
   done
   local result
   result=$("$GUM" choose "${args[@]}") || result="$default"
-  echo "${result:-$default}"
+  result="${result:-$default}"
+  _log_qa "$prompt" "$result"
+  echo "$result"
 }

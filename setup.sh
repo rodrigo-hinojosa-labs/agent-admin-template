@@ -224,10 +224,11 @@ run_wizard() {
     deploy_ws="$DESTINATION"
     echo "  Agent destination directory: $deploy_ws (from --destination flag)"
   else
-    # Default: sibling of the installer (so the agent lives next to the clone)
+    # Default: <parent-of-installer>/agents/<agent_name> — groups agents
+    # under a single sibling "agents/" folder next to the installer clone.
     local installer_parent default_dest
     installer_parent=$(dirname "$SCRIPT_DIR")
-    default_dest="${installer_parent}/${agent_name}"
+    default_dest="${installer_parent}/agents/${agent_name}"
     deploy_ws=$(ask "Agent destination directory" "$default_dest")
   fi
   if [ "$MODE_DOCKER" = true ] && [ "$(uname -s)" != "Linux" ]; then

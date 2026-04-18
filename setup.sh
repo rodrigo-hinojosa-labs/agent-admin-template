@@ -109,6 +109,7 @@ UNINSTALL_YES=false
 UNINSTALL_NUKE=false
 DESTINATION=""
 IN_PLACE=false
+MODE_DOCKER=false
 
 print_usage() {
   cat << 'EOF'
@@ -138,6 +139,9 @@ Options:
   --destination PATH   (wizard only) Use PATH instead of prompting for the destination.
   --in-place           (wizard only) Skip scaffold — generate files in the current
                        directory (legacy behavior).
+  --docker             Scaffold a containerized agent (Docker + compose + host
+                       systemd unit wrapping `docker compose up -d`) instead
+                       of running claude directly on the host.
   --help               Show this message.
 
 Files:
@@ -162,6 +166,7 @@ parse_args() {
       --yes|-y) UNINSTALL_YES=true; shift ;;
       --destination) DESTINATION="$2"; shift 2 ;;
       --in-place) IN_PLACE=true; shift ;;
+      --docker) MODE_DOCKER=true; shift ;;
       --help|-h) print_usage; exit 0 ;;
       *) echo "Unknown option: $1" >&2; print_usage; exit 1 ;;
     esac

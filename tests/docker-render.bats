@@ -73,3 +73,30 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"/workspace/scripts/heartbeat/heartbeat.sh"* ]]
   [[ "$content" == *'${HEARTBEAT_CRON}'* ]]
 }
+
+@test "Dockerfile builds from alpine:3.20 base" {
+  content=$(< "$REPO_ROOT/docker/Dockerfile")
+  [[ "$content" == *"FROM alpine:3.20"* ]]
+}
+
+@test "Dockerfile accepts UID/GID build args and creates agent user" {
+  content=$(< "$REPO_ROOT/docker/Dockerfile")
+  [[ "$content" == *"ARG UID=1000"* ]]
+  [[ "$content" == *"ARG GID=1000"* ]]
+  [[ "$content" == *"addgroup -g"* ]]
+  [[ "$content" == *"adduser -D -u"* ]]
+}
+
+@test "Dockerfile installs required runtime packages" {
+  content=$(< "$REPO_ROOT/docker/Dockerfile")
+  for pkg in bash tmux tini nodejs npm git curl; do
+    [[ "$content" == *"$pkg"* ]]
+  done
+}
+
+@test "Dockerfile ENTRYPOINT uses tini then entrypoint.sh" {
+  content=$(< "$REPO_ROOT/docker/Dockerfile")
+  [[ "$content" == *"ENTRYPOINT"* ]]
+  [[ "$content" == *"/sbin/tini"* ]]
+  [[ "$content" == *"/opt/agent-admin/entrypoint.sh"* ]]
+}

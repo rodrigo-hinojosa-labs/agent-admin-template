@@ -125,3 +125,22 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"su-exec agent"* || "$content" == *"exec su agent"* ]]
   [[ "$content" == *"start_services.sh"* ]]
 }
+
+@test "start_services.sh starts crond in background" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *"crond"* ]]
+  [[ "$content" == *"-b"* ]]
+}
+
+@test "start_services.sh starts tmux session named 'agent'" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *'tmux new-session -d -s agent'* ]]
+  [[ "$content" == *"CLAUDE_CONFIG_DIR=/home/agent/.claude-personal"* ]]
+}
+
+@test "start_services.sh has 5-crashes-in-5-minutes backoff" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *"MAX_CRASHES=5"* ]]
+  [[ "$content" == *"WINDOW=300"* ]]
+  [[ "$content" == *"exit 1"* ]]
+}

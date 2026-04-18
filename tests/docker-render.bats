@@ -48,3 +48,21 @@ teardown() { teardown_tmp_dir; }
   [[ "$result" == *"restart: unless-stopped"* ]]
   [[ "$result" != *"ports:"* ]]
 }
+
+@test "systemd-host-docker unit has Type=oneshot RemainAfterExit=yes" {
+  result=$(render_template "$REPO_ROOT/modules/systemd-host-docker.service.tpl")
+  [[ "$result" == *"Type=oneshot"* ]]
+  [[ "$result" == *"RemainAfterExit=yes"* ]]
+}
+
+@test "systemd-host-docker ExecStart runs docker compose up -d in workspace" {
+  result=$(render_template "$REPO_ROOT/modules/systemd-host-docker.service.tpl")
+  [[ "$result" == *"WorkingDirectory=/home/test/agents/dockbot"* ]]
+  [[ "$result" == *"ExecStart=/usr/bin/docker compose up -d"* ]]
+  [[ "$result" == *"ExecStop=/usr/bin/docker compose down"* ]]
+}
+
+@test "systemd-host-docker unit description includes agent display name" {
+  result=$(render_template "$REPO_ROOT/modules/systemd-host-docker.service.tpl")
+  [[ "$result" == *"Description=DockBot 🐳 (Docker)"* ]]
+}

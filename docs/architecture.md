@@ -74,4 +74,4 @@ user → setup.sh wizard → writes agent.yml + .env
 
 ## See also
 
-- [Docker mode architecture](docker-mode-architecture.md) — containerized deployment variant.
+- [Docker mode architecture](docker-architecture.md) — containerized deployment variant.

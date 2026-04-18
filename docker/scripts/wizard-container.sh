@@ -16,7 +16,15 @@ echo ""
 
 # Telegram — required for the agent to be reachable.
 BOT=$(gum input --password --prompt "Telegram bot token (from @BotFather): ")
+if [ -z "$BOT" ]; then
+  echo "ERROR: Telegram bot token cannot be empty." >&2
+  exit 1
+fi
 CHAT=$(gum input --prompt "Your Telegram chat id (from @userinfobot): ")
+if [ -z "$CHAT" ]; then
+  echo "ERROR: Telegram chat id cannot be empty." >&2
+  exit 1
+fi
 
 # GitHub PAT — optional. Gum returns empty on skip.
 if gum confirm "Add a GitHub Personal Access Token (for gh / MCP)?" --default=no; then

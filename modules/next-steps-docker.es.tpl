@@ -20,7 +20,7 @@ Para salir de `docker attach` sin matar el contenedor: `Ctrl-p Ctrl-q` (NO `Ctrl
 Después del reinicio, reconéctate a la sesión:
 
 ```bash
-docker exec -it {{AGENT_NAME}} tmux attach -t agent
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
 ```
 
 Dentro de la sesión:
@@ -42,7 +42,7 @@ Para desconectarte sin matar la sesión: `Ctrl-b d`.
 
 ```bash
 # Reconectar a la sesión
-docker exec -it {{AGENT_NAME}} tmux attach -t agent
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
 
 # Rotar un secreto
 $EDITOR {{DEPLOYMENT_WORKSPACE}}/.env

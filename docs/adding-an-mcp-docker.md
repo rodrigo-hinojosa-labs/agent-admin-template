@@ -145,7 +145,7 @@ After updating the templates:
 cd ~/agents/<name>
 docker compose build
 docker compose up -d
-docker exec -it <name> tmux attach -t agent
+docker exec -it -u agent <name> tmux attach -t agent
 ```
 
 Test your MCP by invoking it in the Claude session. If it fails, check the agent's log:

@@ -59,7 +59,7 @@ Detach from `docker attach` without killing the container with `Ctrl-p Ctrl-q` (
 OAuth login happens once, inside the running container. Reconnect to the tmux session:
 
 ```bash
-docker exec -it <name> tmux attach -t agent
+docker exec -it -u agent <name> tmux attach -t agent
 ```
 
 Inside the session:
@@ -71,7 +71,7 @@ Inside the session:
 Re-attach to the session:
 
 ```bash
-docker exec -it <name> tmux attach -t agent
+docker exec -it -u agent <name> tmux attach -t agent
 ```
 
 Then pair your Telegram account:
@@ -88,7 +88,7 @@ Connect to the agent's tmux session:
 
 ```bash
 ssh <host>
-docker exec -it <name> tmux attach -t agent
+docker exec -it -u agent <name> tmux attach -t agent
 ```
 
 This gives you an interactive Claude session. Detach with `Ctrl-b d` (standard tmux binding).
@@ -165,6 +165,14 @@ To also delete the workspace:
 After teardown, no traces of the agent remain on the host (no dotfiles, no systemd units, no leftover state).
 
 ## Troubleshooting
+
+### `docker exec … tmux attach -t agent` says "no sessions"
+
+`docker exec` runs as root by default, and tmux keeps a per-UID socket at `/tmp/tmux-<uid>/default`. The session is owned by the `agent` user (UID 501 by default), so a root-owned exec looks at `/tmp/tmux-0/` and correctly reports no sessions there. Always pass `-u agent`:
+
+```bash
+docker exec -it -u agent <name> tmux attach -t agent
+```
 
 ### `plugin:telegram:telegram · ✘ failed` (no pairing code sent)
 

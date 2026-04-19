@@ -150,7 +150,7 @@ watchdog in-container ──► Docker `unless-stopped` ──► systemd host u
 
 ```bash
 ssh <host>
-docker exec -it <name> tmux attach -t agent
+docker exec -it -u agent <name> tmux attach -t agent
 # Ctrl-b d to detach
 ```
 

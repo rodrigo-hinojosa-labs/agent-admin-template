@@ -20,7 +20,7 @@ Detach from `docker attach` without killing the container: `Ctrl-p Ctrl-q` (NOT 
 After the container restarts, reconnect to the session:
 
 ```bash
-docker exec -it {{AGENT_NAME}} tmux attach -t agent
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
 ```
 
 Inside the session:
@@ -42,7 +42,7 @@ Detach with `Ctrl-b d`.
 
 ```bash
 # Reconnect to the session
-docker exec -it {{AGENT_NAME}} tmux attach -t agent
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
 
 # Rotate a secret
 $EDITOR {{DEPLOYMENT_WORKSPACE}}/.env

@@ -39,9 +39,9 @@ DISPLAY_NAME="Linus 🐧"
 ROLE="Admin assistant for my ecosystem"
 VIBE="Direct, useful, no drama"
 
-USER_NAME="Rodrigo Hinojosa"
-NICKNAME="Rodri"
-TIMEZONE="America/Santiago"
+USER_NAME="Your Full Name"       # used in CLAUDE.md and agent.yml
+NICKNAME="You"                   # how the agent should address you
+TIMEZONE="America/Santiago"      # IANA timezone — adjust to your own
 EMAIL="you@example.com"
 LANGUAGE="en"                    # es | en | mixed
 

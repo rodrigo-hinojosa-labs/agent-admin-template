@@ -127,7 +127,7 @@ When the wizard creates a fork (default when you answer `Y` to *"Create a GitHub
 - `origin` → your fork (e.g. `rodri-agents/<agent>-agent`)
 - `upstream` → the template repo (e.g. `rodrigo-hinojosa-labs/agent-admin-template`)
 
-The live branch is named `<host>-<agent>-v<N>/live` (e.g. `ferrari-demo-1/live`). The number increments from existing `*-*-v*/live` branches on the fork so scaffolding the same agent on a new host gives you `v2`, `v3`, etc.
+The live branch is named `<host>-<agent>-v<N>/live` (e.g. `myhost-demo-1/live`). The number increments from existing `*-*-v*/live` branches on the fork so scaffolding the same agent on a new host gives you `v2`, `v3`, etc.
 
 ### Pulling template improvements
 ```bash

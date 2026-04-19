@@ -5,7 +5,7 @@ Docker mode runs each agent inside a container with a consolidated state volume 
 ## Host / Container / Volume Layout
 
 ```
-HOST (e.g. ferrari)
+HOST (e.g. myhost)
 ├── ~/agents/<name>/                    ← bind-mount (workspace)
 │   ├── CLAUDE.md
 │   ├── .env                            ← 0600, secrets written by wizard

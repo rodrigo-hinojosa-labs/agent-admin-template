@@ -1,19 +1,19 @@
 version: 1
 agent:
-  name: rodri-agent
-  display_name: "RodriAgent 🤖"
-  role: "Administrador del ecosistema de Rodrigo"
-  vibe: "Directo, útil, sin drama"
+  name: parity-agent
+  display_name: "ParityAgent 🤖"
+  role: "Personal ecosystem admin"
+  vibe: "Direct, useful, no drama"
   use_default_principles: true
 user:
-  name: "Rodrigo Hinojosa"
-  nickname: "Rodri"
+  name: "Alice Example"
+  nickname: "Alice"
   timezone: "America/Santiago"
-  email: "rodrigo.andres.hinojosa.acuna@gmail.com"
+  email: "alice@example.com"
   language: "mixed"
 deployment:
-  host: "ferrari"
-  workspace: "~/Claude/Agents/rodri-agent"
+  host: "myhost"
+  workspace: "~/Claude/Agents/parity-agent"
   install_service: true
 notifications:
   channel: telegram
@@ -26,12 +26,12 @@ features:
     default_prompt: "Check status and report"
 mcps:
   atlassian:
-    - name: cencosud
-      url: "https://cencosud.atlassian.net"
-      email: "rodrigo.hinojosa@cencosud.cl"
+    - name: work
+      url: "https://work.example.atlassian.net"
+      email: "alice@work.example.com"
     - name: personal
-      url: "https://rodrigo-hinojosa.atlassian.net"
-      email: "rodrigo.andres.hinojosa.acuna@gmail.com"
+      url: "https://personal.example.atlassian.net"
+      email: "alice@example.com"
   github:
     enabled: true
 plugins:

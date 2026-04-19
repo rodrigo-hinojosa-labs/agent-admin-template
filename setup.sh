@@ -325,7 +325,7 @@ run_wizard() {
     # en el nombre de la branch (ver scaffold_with_fork). Strip "-agent" si ya
     # lo trae para evitar "foo-agent-agent".
     default_fork="${agent_lc%-agent}-agent"
-    fork_owner=$(ask "Fork owner (user or org)" "rodri-agents")
+    fork_owner=$(ask "Fork owner (user or org)" "your-github-user-or-org")
     fork_name=$(ask "Fork repo name" "$default_fork")
     fork_private=$(ask_yn "Make the fork private? (recommended)" "y")
     template_url=$(ask "Template repo URL" "$template_url")

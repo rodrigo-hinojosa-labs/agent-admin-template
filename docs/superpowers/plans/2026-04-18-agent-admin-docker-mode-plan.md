@@ -8,7 +8,7 @@
 
 **Tech Stack:** bash 4+, `yq`, `jq`, `bats-core`, `perl -0777` (template engine), `gum` (wizard UI), `tini` (container PID 1), `busybox crond` (in-container heartbeat), `alpine:3.20` (base image), `docker compose v2`, systemd (host unit).
 
-**Out of scope for this plan:** Host → Docker migration of `rodri-agent`, multi-arch builds, registry push, readonly rootfs hardening.
+**Out of scope for this plan:** Host → Docker migration of existing host-resident agents, multi-arch builds, registry push, readonly rootfs hardening.
 
 ---
 

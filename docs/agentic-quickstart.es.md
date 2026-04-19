@@ -56,7 +56,7 @@ INSTALL_SERVICE="y"              # y | n
 CLAUDE_PROFILE_CHOICE=""         # vacío = auto, "1".."N" = elegir candidato
 
 FORK_ENABLED="y"                 # y | n — si n, ignora todos los FORK_*
-FORK_OWNER="rodri-agents"        # usuario u organización
+FORK_OWNER="your-github-user-or-org"   # usuario u organización
 FORK_NAME=""                     # vacío = <agent>-agent (compartido entre hosts; las branches llevan el host)
 FORK_PRIVATE="y"
 TEMPLATE_URL="https://github.com/rodrigo-hinojosa-labs/agent-admin-template"

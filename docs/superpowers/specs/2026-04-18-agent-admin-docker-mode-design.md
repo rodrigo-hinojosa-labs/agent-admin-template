@@ -20,7 +20,7 @@ Goal: **encapsulate all per-agent state and runtime behind a Docker boundary** s
 
 ### Non-goals
 
-- Migrating the existing host-resident `rodri-agent` to Docker (separate future feature).
+- Migrating the existing host-resident `the reference agent` to Docker (separate future feature).
 - Multi-architecture images.
 - Registry push / CI distribution.
 - Kubernetes / swarm orchestration.
@@ -39,7 +39,7 @@ Goal: **encapsulate all per-agent state and runtime behind a Docker boundary** s
 | Persistence | Workspace bind-mount + consolidated named volume for state | Developer keeps normal git/IDE workflow on the workspace; internal state stays opaque |
 | Base image | `alpine:3.20` | Minimum footprint; target ≤ 200MB final |
 | UID strategy | Build-arg matched to host `id -u` | Avoids bind-mount ownership mismatch |
-| Runtime supervisor | Bash watchdog (ported from existing `rodri-agent.sh`) | Fewer moving parts than supervisord; already validated model |
+| Runtime supervisor | Bash watchdog (ported from existing `the reference agent.sh`) | Fewer moving parts than supervisord; already validated model |
 | PID 1 | `tini` | Standard alpine package; reliable signal forwarding |
 | Restart policy | `unless-stopped` | Matches current systemd semantics |
 | Secrets (`.env`) | Host bind-mount, 0600 | Rotate without `docker exec`; tradeoff accepted |
@@ -52,7 +52,7 @@ Goal: **encapsulate all per-agent state and runtime behind a Docker boundary** s
 ### 3.1 Host / Container / Volume layout
 
 ```
-HOST (e.g. ferrari)
+HOST (e.g. myhost)
 ├── ~/agents/<name>/                    ← bind-mount (workspace)
 │   ├── CLAUDE.md
 │   ├── .env                            ← 0600, written by wizard
@@ -82,7 +82,7 @@ CONTAINER (agent-admin:latest)
 │
 ├── /opt/agent-admin/                   ← baked in image (read-only runtime)
 │   ├── entrypoint.sh
-│   ├── scripts/start_services.sh       ← watchdog (ex-rodri-agent.sh)
+│   ├── scripts/start_services.sh       ← watchdog (ex-the reference agent.sh)
 │   ├── scripts/wizard-gum.sh           ← interactive first-run wizard
 │   └── crontab.tpl
 │
@@ -262,7 +262,7 @@ ARG GID=1000
 RUN addgroup -g $GID agent && adduser -D -u $UID -G agent agent
 ```
 
-`setup.sh --docker` injects the host's UID/GID into the build context. Supports heterogeneous UIDs across ferrari/redbull/mclaren.
+`setup.sh --docker` injects the host's UID/GID into the build context. Supports heterogeneous UIDs across different hosts.
 
 ### 5.2 Volume init
 
@@ -369,7 +369,7 @@ Stack: `bats-core` (existing repo convention).
 
 ## 8. Open questions / future work
 
-- **Host → Docker migration** for existing agents (rodri-agent): separate spec.
+- **Host → Docker migration** for existing agents (the reference agent): separate spec.
 - **Read-only root filesystem**: possible future hardening once MCP behavior is characterized.
 - **Registry distribution**: currently local build only; ghcr.io push as future optional.
 - **Multi-arch**: all current hosts share architecture; defer.

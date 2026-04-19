@@ -62,11 +62,47 @@ ensure_plugin_installed() {
   return 1
 }
 
+# Channel plugins (e.g. telegram) read their bot token from a channel-
+# scoped .env at ~/.claude/channels/<channel>/.env — not from the
+# workspace .env. Sync it on demand so the user never has to run
+# `/telegram:configure <token>` manually.
+ensure_channel_env_synced() {
+  local channel="$1"
+  local workspace_key="$2"
+  local channel_env="$HOME/.claude/channels/${channel}/.env"
+
+  if [ -f "$channel_env" ] && grep -q "^${workspace_key}=" "$channel_env" 2>/dev/null; then
+    return 0
+  fi
+
+  local token
+  token=$(grep "^${workspace_key}=" /workspace/.env 2>/dev/null | head -1 | cut -d= -f2-)
+  [ -z "$token" ] && return 1
+
+  mkdir -p "$(dirname "$channel_env")"
+  umask 077
+  if [ -f "$channel_env" ]; then
+    # Preserve other lines, replace/add the target key.
+    if grep -q "^${workspace_key}=" "$channel_env"; then
+      sed -i "s|^${workspace_key}=.*|${workspace_key}=${token}|" "$channel_env"
+    else
+      echo "${workspace_key}=${token}" >> "$channel_env"
+    fi
+  else
+    echo "${workspace_key}=${token}" > "$channel_env"
+  fi
+  chmod 0600 "$channel_env"
+  log "synced ${workspace_key} from /workspace/.env → ${channel_env}"
+}
+
 # ── 4. Claude launch command builder ──────────────────────
 build_claude_cmd() {
   local base="CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR_VAL claude"
   if ensure_plugin_installed "$REQUIRED_CHANNEL_PLUGIN" \
      && [ -d "$(plugin_cache_dir_for "$REQUIRED_CHANNEL_PLUGIN")" ]; then
+    # Plugin is installed — make sure its channel-scoped .env has the token
+    # before we attach --channels, or the MCP server errors out on boot.
+    ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
     echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN"
   else
     echo "$base"

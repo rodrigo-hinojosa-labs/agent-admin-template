@@ -348,24 +348,19 @@ run_wizard() {
   local notify_channel notify_bot_token="" notify_chat_id=""
   notify_channel=$(ask_choice "Heartbeat notification channel" "none" "none log telegram")
   if [ "$notify_channel" = "telegram" ]; then
-    if [ "$MODE_DOCKER" = true ]; then
-      echo "  Docker mode: Telegram credentials will be collected inside the container"
-      echo "  on first boot. Skipping token/chat_id prompts here."
-    else
-      echo "  Heartbeat will use a dedicated bot (separate from the chat plugin)."
-      echo "  Create it at @BotFather and copy its token."
-      echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
-      notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
-      echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
-      echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
-      notify_chat_id=$(ask "Chat ID (or skip)" "")
-      if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
-        echo ""
-        echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"
-        echo "     until you fill the missing value(s) in .env:"
-        [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
-        [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
-      fi
+    echo "  Heartbeat will use a dedicated bot (separate from the chat plugin)."
+    echo "  Create it at @BotFather and copy its token."
+    echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
+    notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
+    echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
+    echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
+    notify_chat_id=$(ask "Chat ID (or skip)" "")
+    if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
+      echo ""
+      echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"
+      echo "     until you fill the missing value(s) in .env:"
+      [ -z "$notify_bot_token" ] && echo "       NOTIFY_BOT_TOKEN=..."
+      [ -z "$notify_chat_id" ]   && echo "       NOTIFY_CHAT_ID=..."
     fi
   fi
   echo ""

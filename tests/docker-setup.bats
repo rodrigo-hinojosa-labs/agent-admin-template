@@ -37,8 +37,9 @@ run_docker_wizard() {
     UTC
     a@b.com
     en
-    host
   )
+  # In docker mode the host-name prompt is auto-filled from `hostname`
+  # silently, so we don't feed an answer for it.
   # install_service prompt fires only on Linux in docker mode.
   [ "$(uname -s)" = "Linux" ] && answers+=(n)
   answers+=(

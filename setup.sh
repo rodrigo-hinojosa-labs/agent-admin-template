@@ -219,7 +219,18 @@ run_wizard() {
   # ── 3. Deployment ───────────────────────────────────
   echo "▸ Deployment"
   local deploy_host deploy_ws deploy_svc
-  deploy_host=$(ask "Host machine name" "$(hostname)")
+  if [ "$MODE_DOCKER" = true ]; then
+    # In docker mode the agent's "host" is the container, not the machine
+    # running docker. We still need SOME host identifier for fork branch
+    # naming (e.g. macbook-dockertest-v1/live so the same agent can be
+    # scaffolded on multiple machines), but it's a disambiguator, not an
+    # identity. Skip the prompt and use the current hostname silently.
+    deploy_host=$(hostname)
+    echo "  Host machine: $deploy_host (used only for fork branch naming;"
+    echo "  the agent itself runs inside the container, not on this host)"
+  else
+    deploy_host=$(ask "Host machine name" "$(hostname)")
+  fi
   if [ -n "$DESTINATION" ]; then
     deploy_ws="$DESTINATION"
     echo "  Agent destination directory: $deploy_ws (from --destination flag)"

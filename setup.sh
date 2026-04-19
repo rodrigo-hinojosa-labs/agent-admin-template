@@ -439,11 +439,10 @@ ATLASSIAN_${upper}_TOKEN=${ws_token}
   if [ "$(ask_yn 'Enable GitHub MCP?' 'n')" = "true" ]; then
     github_enabled="true"
     github_email=$(ask "GitHub account email" "$user_email")
-    if [ "$MODE_DOCKER" = true ]; then
-      echo "  Docker mode: PAT collected inside container on first boot."
-    else
-      github_pat=$(ask_secret "GitHub Personal Access Token")
-    fi
+    echo "  This is the PAT the GitHub MCP server uses to call the API — it is"
+    echo "  independent from any fork token you may have given earlier."
+    echo "  (Press Enter to skip — fill GITHUB_PAT in .env later.)"
+    github_pat=$(ask_secret "GitHub Personal Access Token for MCP (or skip)")
   fi
   echo ""
 

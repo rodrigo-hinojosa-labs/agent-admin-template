@@ -50,11 +50,17 @@ fi
 update_env_var TELEGRAM_BOT_TOKEN "$BOT"
 
 # ── GitHub PAT (optional — for gh CLI and the github MCP) ──
-if gum confirm "Add a GitHub Personal Access Token (for gh / MCP)?" --default=no; then
-  GH_PAT=$(gum input --password --prompt "GitHub PAT: ")
-  if [ -n "$GH_PAT" ]; then
-    update_env_var GITHUB_PAT "$GH_PAT"
+# If the host wizard already captured a GITHUB_PAT, don't ask again.
+existing_gh_pat=$(grep "^GITHUB_PAT=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+if [ -z "$existing_gh_pat" ]; then
+  if gum confirm "Add a GitHub Personal Access Token (for gh / MCP)?" --default=no; then
+    GH_PAT=$(gum input --password --prompt "GitHub PAT: ")
+    if [ -n "$GH_PAT" ]; then
+      update_env_var GITHUB_PAT "$GH_PAT"
+    fi
   fi
+else
+  echo "  ✓ GITHUB_PAT already set by host wizard — skipping."
 fi
 
 # ── Atlassian workspace tokens ──

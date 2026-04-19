@@ -352,9 +352,36 @@ run_wizard() {
     echo "  Create it at @BotFather and copy its token."
     echo "  (Press Enter to skip — fill NOTIFY_BOT_TOKEN in .env later.)"
     notify_bot_token=$(ask_secret "Heartbeat bot token (or skip)")
-    echo "  Message @userinfobot to get your chat ID (numeric, like 5616135342)."
-    echo "  (Press Enter to skip — fill NOTIFY_CHAT_ID in .env later.)"
-    notify_chat_id=$(ask "Chat ID (or skip)" "")
+
+    # If we got a token, offer to auto-discover the chat id via the Telegram
+    # Bot API's getUpdates endpoint. The user just needs to DM the bot once.
+    if [ -n "$notify_bot_token" ]; then
+      echo ""
+      echo "  To send pings the notifier needs your chat id. You can either"
+      echo "  paste it now (get it from @userinfobot or a prior DM), or let"
+      echo "  the wizard auto-discover it by having you message the bot once."
+      echo ""
+      if [ "$(ask_yn 'Auto-discover chat id by messaging the bot now?' 'y')" = "true" ]; then
+        echo ""
+        echo "  → Open Telegram, send ANY message to your notifier bot,"
+        echo "    then come back here and press Enter."
+        read -r _ 2>/dev/null || true
+        notify_chat_id=$(curl -s --max-time 10 \
+          "https://api.telegram.org/bot${notify_bot_token}/getUpdates" 2>/dev/null \
+          | jq -r '.result | map(select(.message.chat.type=="private")) | last | .message.chat.id // empty' 2>/dev/null || true)
+        if [ -n "$notify_chat_id" ]; then
+          echo "  ✓ Detected chat id: $notify_chat_id"
+        else
+          echo "  ⚠  Could not detect a chat id (no recent DM to the bot, or"
+          echo "     getUpdates returned empty — maybe another process already"
+          echo "     consumed the updates). You can paste it manually:"
+          notify_chat_id=$(ask "Chat ID (or skip to fill in .env later)" "")
+        fi
+      else
+        notify_chat_id=$(ask "Chat ID (or skip to fill in .env later)" "")
+      fi
+    fi
+
     if [ -z "$notify_bot_token" ] || [ -z "$notify_chat_id" ]; then
       echo ""
       echo "  ⚠  Telegram credentials incomplete — heartbeat pings are disabled"

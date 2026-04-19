@@ -13,7 +13,9 @@
 
 set -euo pipefail
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [start_services] $*"; }
+# Always write logs to stderr so functions that `echo` a value for
+# capture (e.g. build_claude_cmd via $(...)) aren't polluted.
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [start_services] $*" >&2; }
 
 # ── 1. crond ──────────────────────────────────────────────
 log "starting crond"

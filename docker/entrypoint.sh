@@ -24,7 +24,15 @@ if [ -f /opt/agent-admin/crontab.tpl ]; then
   log "crontab rendered"
 fi
 
-# 3. Drop to `agent` and hand off to the supervisor. The supervisor is the
+# 3. Refresh /workspace/CONTAINER.md with live runtime details. Cheap, runs
+#    as agent (the workspace is bind-mounted with agent-owned perms). The
+#    agent reads it through CLAUDE.md's pointer so it knows, with real
+#    data, that it runs inside this container.
+if [ -x /opt/agent-admin/scripts/write_container_info.sh ]; then
+  su-exec agent /opt/agent-admin/scripts/write_container_info.sh || log "WARN: container-info refresh failed (non-fatal)"
+fi
+
+# 4. Drop to `agent` and hand off to the supervisor. The supervisor is the
 #    authority on what to launch next: a bare Claude session so the user can
 #    `/login` first, the Telegram wizard once the profile is authenticated
 #    but missing the bot token, or a channel-enabled Claude once everything

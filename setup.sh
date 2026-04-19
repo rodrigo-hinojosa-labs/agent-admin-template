@@ -1010,6 +1010,11 @@ regenerate() {
   else
     export NOTIFICATIONS_CHANNEL_IS_TELEGRAM=false
   fi
+  if [ "${DEPLOYMENT_MODE:-host}" = "docker" ]; then
+    export DEPLOYMENT_MODE_IS_DOCKER=true
+  else
+    export DEPLOYMENT_MODE_IS_DOCKER=false
+  fi
 
   # Claude profile: expand $HOME / ~ in the stored path. Backwards compat:
   # agents written before the claude.* section default to ~/.claude-personal.

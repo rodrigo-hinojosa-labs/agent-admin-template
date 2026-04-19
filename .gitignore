@@ -8,6 +8,11 @@
 /scripts/heartbeat/logs/
 /scripts/heartbeat/heartbeat.conf
 
+# Docker mode runtime introspection (refreshed every container boot)
+/CONTAINER.md
+/claude.log
+/claude.cron.log
+
 # Auto-downloaded dependencies
 /scripts/vendor/bin/
 

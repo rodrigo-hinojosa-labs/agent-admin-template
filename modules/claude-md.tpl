@@ -11,6 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Vibe:** {{AGENT_VIBE}}
 - **Host:** {{DEPLOYMENT_HOST}}
 - **Workspace:** {{DEPLOYMENT_WORKSPACE}}
+{{#if DEPLOYMENT_MODE_IS_DOCKER}}
+- **Runtime:** Docker container (alpine) on host `{{DEPLOYMENT_HOST}}`. You do **not** run directly on the host OS — your filesystem, processes, and network are isolated inside the container. Don't claim to run "on the Mac/Linux/etc." directly; if asked where you run, you run in a Docker container on that host.
+- **Container info:** see `CONTAINER.md` in this workspace — refreshed at each container start with live details (OS, kernel, UID/GID, paths, network, uptime, running MCP servers).
+{{/if}}
 
 ## User
 

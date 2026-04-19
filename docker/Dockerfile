@@ -104,9 +104,11 @@ COPY entrypoint.sh /opt/agent-admin/entrypoint.sh
 COPY crontab.tpl /opt/agent-admin/crontab.tpl
 COPY scripts/start_services.sh /opt/agent-admin/scripts/start_services.sh
 COPY scripts/wizard-container.sh /opt/agent-admin/scripts/wizard-container.sh
+COPY scripts/write_container_info.sh /opt/agent-admin/scripts/write_container_info.sh
 RUN chmod +x /opt/agent-admin/entrypoint.sh \
              /opt/agent-admin/scripts/start_services.sh \
-             /opt/agent-admin/scripts/wizard-container.sh
+             /opt/agent-admin/scripts/wizard-container.sh \
+             /opt/agent-admin/scripts/write_container_info.sh
 
 # Workspace is bind-mounted at runtime; /home/agent is a named volume.
 WORKDIR /workspace

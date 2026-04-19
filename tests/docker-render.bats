@@ -137,6 +137,22 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"--channels plugin:\$REQUIRED_CHANNEL_PLUGIN --dangerously-skip-permissions"* ]]
 }
 
+@test "start_services.sh verifies channel health after --channels launch" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *"verify_channel_healthy"* ]]
+  [[ "$content" == *"bun server.ts"* ]]
+  # start_session must kill the tmux session when verify fails so the
+  # watchdog picks it up as a crash and respawns with fresh state.
+  [[ "$content" == *"never appeared within 20s"* ]]
+}
+
+@test "start_services.sh pre-accepts bypass dialog before every session launch" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  # Call site lives in start_session so it runs before tmux gets the
+  # command, not inside next_tmux_cmd where only case C would trigger it.
+  [[ "$content" == *"pre_accept_bypass_permissions"$'\n'*"cmd=\$(next_tmux_cmd)"* ]]
+}
+
 @test "start_services.sh starts crond in background" {
   content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
   [[ "$content" == *"crond"* ]]

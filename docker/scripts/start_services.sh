@@ -151,12 +151,38 @@ next_tmux_cmd() {
   # can't escape to the host beyond what the bind-mount + named volume
   # already expose.
   ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
-  pre_accept_bypass_permissions
   echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN --dangerously-skip-permissions"
 }
 
 # ── 5. tmux session lifecycle ─────────────────────────────
+# After a --channels launch the plugin's MCP server (bun server.ts) should
+# appear as a child of claude within a few seconds. If it doesn't, the
+# session is in an unrecoverable state — typically:
+#   - claude is hung on an interactive dialog (e.g. a skip-permissions
+#     prompt we couldn't pre-accept),
+#   - bun cached stale channel state from a previous boot, or
+#   - the plugin MCP failed to init and its retry loop got wedged.
+# In any of those cases the right move is to kill the session and let the
+# watchdog respawn with fresh state. We give it up to 20s.
+verify_channel_healthy() {
+  local timeout=20
+  local elapsed=0
+  while [ "$elapsed" -lt "$timeout" ]; do
+    if pgrep -f "bun server.ts" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  return 1
+}
+
 start_session() {
+  # Pre-accept the bypass-permissions dialog unconditionally so ANY launch
+  # that ends up passing --dangerously-skip-permissions boots cleanly,
+  # regardless of which case next_tmux_cmd picked.
+  pre_accept_bypass_permissions
+
   local cmd
   cmd=$(next_tmux_cmd)
   log "launching: $cmd"
@@ -165,7 +191,17 @@ start_session() {
   tmux new-session -d -s "$SESSION" -c "$WORKDIR" "$cmd"
   tmux pipe-pane -t "$SESSION" "cat >> /workspace/claude.log"
   sleep 2
-  tmux has-session -t "$SESSION" 2>/dev/null
+  tmux has-session -t "$SESSION" 2>/dev/null || return 1
+
+  if [[ "$cmd" == *"--channels "* ]]; then
+    if ! verify_channel_healthy; then
+      log "WARN: --channels launched but bun server.ts never appeared within 20s — killing for respawn"
+      tmux kill-session -t "$SESSION" 2>/dev/null || true
+      return 1
+    fi
+    log "channel plugin healthy — bun server.ts running"
+  fi
+  return 0
 }
 
 # Session is "alive" when the tmux session still exists. Whatever is running
@@ -204,6 +240,6 @@ while true; do
     exit 1
   fi
 
-  log "claude died (crash $CRASH_COUNT/${MAX_CRASHES} in window) — respawning"
-  start_session || log "WARN: respawn failed, will retry in 10s"
+  log "tmux session ended (crash $CRASH_COUNT/${MAX_CRASHES} in window) — respawning"
+  start_session || log "WARN: respawn failed, watchdog will retry in 2s"
 done

@@ -42,16 +42,19 @@ After scaffolding, start the agent:
 cd ~/agents/<name>
 docker compose build
 docker compose up -d
-docker attach <name>
 ```
 
-The container launches Claude Code directly — no wizard, no prompts. The in-container supervisor (`start_services.sh`) decides what to show you at each launch, and on a brand-new container that means "a bare Claude session so you can log in first".
+The in-container supervisor (`start_services.sh`) runs as PID 1 and launches Claude Code inside a detached tmux session. To reach the user-facing session, use `docker exec` + `tmux attach` — NOT `docker attach`, which only shows supervisor logs:
 
-Detach from `docker attach` without killing the container with `Ctrl-p Ctrl-q` (NOT `Ctrl-c`).
+```bash
+docker exec -it -u agent <name> tmux attach -t agent
+```
+
+Detach from tmux without killing the session with `Ctrl-b d` (standard tmux binding).
 
 ## 1. Log in to Claude
 
-Inside the attached session:
+Inside the tmux session:
 
 1. Pick a theme (Enter accepts the default) and confirm trust on `/workspace`.
 2. `/login` → opens an OAuth URL → paste the returned code. Credentials persist on the named state volume (`<name>-state`).
@@ -177,6 +180,18 @@ To also delete the workspace:
 After teardown, no traces of the agent remain on the host (no dotfiles, no systemd units, no leftover state).
 
 ## Troubleshooting
+
+### `docker attach <name>` hangs with no output
+
+`docker attach` connects to the container's PID 1 stdio. PID 1 is the supervisor (`start_services.sh`), which runs its watchdog loop silently once the tmux session is up — so attach just hangs, no prompt, no UI.
+
+The user-facing Claude session lives inside a detached tmux session owned by the `agent` user. Use this instead:
+
+```bash
+docker exec -it -u agent <name> tmux attach -t agent
+```
+
+If you accidentally ran `docker attach` and are stuck, detach with `Ctrl-p Ctrl-q` (NOT `Ctrl-c`, which would kill the container).
 
 ### `docker exec … tmux attach -t agent` says "no sessions"
 

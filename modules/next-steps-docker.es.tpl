@@ -8,15 +8,19 @@ Tu agente está scaffoldeado como contenedor Docker en `{{DEPLOYMENT_WORKSPACE}}
 cd {{DEPLOYMENT_WORKSPACE}}
 docker compose build
 docker compose up -d
-docker attach {{AGENT_NAME}}
 ```
 
-El contenedor arranca Claude Code directamente — sin prompts ni wizards todavía.
-Para salir de `docker attach` sin matar el contenedor: `Ctrl-p Ctrl-q` (NO `Ctrl-c`).
+El contenedor arranca y el supervisor lanza Claude Code dentro de una sesión tmux detached. Conéctate con (NO uses `docker attach` — ese muestra los logs del supervisor; la sesión interactiva vive en tmux):
+
+```bash
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
+```
+
+Para salir sin matar el contenedor: `Ctrl-b d` (atajo estándar de tmux).
 
 ## 2. Login en Claude (una sola vez)
 
-Dentro de la sesión:
+Dentro de la sesión tmux:
 
 1. Elige un tema (Enter acepta el default) y confirma trust en `/workspace`.
 2. Corre `/login`, abre la URL en el navegador, autoriza, pega el código de vuelta. Las credenciales viven en el named volume (`{{AGENT_NAME}}-state`) y sobreviven rebuilds.

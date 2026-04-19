@@ -184,6 +184,18 @@ After teardown, no traces of the agent remain on the host (no dotfiles, no syste
 
 ## Troubleshooting
 
+### Every Telegram message triggers a permission prompt
+
+In steady state, Claude is launched with `--dangerously-skip-permissions` so
+tool calls (including `mcp__plugin_telegram_telegram__reply`) don't stall on
+approval prompts for every Telegram message. If you're still seeing prompts,
+your container is running a pre-fix image — `docker compose build &&
+docker compose up -d --force-recreate` will pick up the updated launch line.
+
+The flag is scoped to the `--channels` launch only. The pre-`/login`
+session (before you authenticate) still respects permission prompts,
+because that's the interactive phase where you want the confirmations.
+
 ### `docker attach <name>` hangs with no output
 
 `docker attach` connects to the container's PID 1 stdio. PID 1 is the supervisor (`start_services.sh`), which runs its watchdog loop silently once the tmux session is up — so attach just hangs, no prompt, no UI.

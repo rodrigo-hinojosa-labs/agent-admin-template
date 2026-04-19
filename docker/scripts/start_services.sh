@@ -123,9 +123,14 @@ next_tmux_cmd() {
     echo "/opt/agent-admin/scripts/wizard-container.sh"
     return
   fi
-  # Case C: steady state with channel attached.
+  # Case C: steady state with channel attached. Skip permission prompts —
+  # the agent's only interactive driver in steady state is the remote
+  # Telegram user (you), so an approval prompt would just stall every
+  # reply. The container is the security boundary; tool calls inside it
+  # can't escape to the host beyond what the bind-mount + named volume
+  # already expose.
   ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
-  echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN"
+  echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN --dangerously-skip-permissions"
 }
 
 # ── 5. tmux session lifecycle ─────────────────────────────

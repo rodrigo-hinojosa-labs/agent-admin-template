@@ -130,6 +130,13 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"wizard-container.sh"* ]]
 }
 
+@test "start_services.sh attaches --dangerously-skip-permissions in steady state" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  # Only the --channels branch opts into skip-permissions; the bare pre-login
+  # launch should NOT carry it (so /login stays interactive).
+  [[ "$content" == *"--channels plugin:\$REQUIRED_CHANNEL_PLUGIN --dangerously-skip-permissions"* ]]
+}
+
 @test "start_services.sh starts crond in background" {
   content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
   [[ "$content" == *"crond"* ]]

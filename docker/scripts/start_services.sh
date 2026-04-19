@@ -104,6 +104,27 @@ has_telegram_token() {
   [ -n "$val" ]
 }
 
+# Pre-accept Claude Code's "bypass permissions" one-time warning by flipping
+# skipDangerousModePermissionPrompt=true in the user settings. Without this,
+# the first launch with --dangerously-skip-permissions hangs on an
+# interactive confirmation dialog — which breaks an automated flow where
+# the user interacts only via Telegram.
+pre_accept_bypass_permissions() {
+  local settings="$HOME/.claude/settings.json"
+  [ -f "$settings" ] || return 0
+  local current
+  current=$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings" 2>/dev/null || echo "false")
+  [ "$current" = "true" ] && return 0
+  log "pre-accepting --dangerously-skip-permissions in $settings"
+  local tmp
+  tmp=$(mktemp)
+  if jq '. + {skipDangerousModePermissionPrompt: true}' "$settings" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$settings"
+  else
+    rm -f "$tmp"
+  fi
+}
+
 # Build the next tmux command based on current state. Three cases:
 #   A. Not authenticated → bare `claude` so the user can `/login`.
 #   B. Authenticated, no Telegram bot token yet → interactive wizard to
@@ -130,6 +151,7 @@ next_tmux_cmd() {
   # can't escape to the host beyond what the bind-mount + named volume
   # already expose.
   ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
+  pre_accept_bypass_permissions
   echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN --dangerously-skip-permissions"
 }
 

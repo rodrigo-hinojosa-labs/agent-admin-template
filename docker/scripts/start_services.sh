@@ -156,8 +156,11 @@ if ! start_session; then
 fi
 
 # ── 6. Watchdog ───────────────────────────────────────────
+# Poll every 2s so the re-attach gap between Claude dying (/exit) and the
+# next tmux session coming up is barely noticeable. Cheap check — just
+# `tmux has-session`.
 while true; do
-  sleep 10
+  sleep 2
   if session_alive; then
     continue
   fi

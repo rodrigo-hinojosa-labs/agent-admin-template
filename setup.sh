@@ -397,7 +397,15 @@ run_wizard() {
 "
       local upper
       upper=$(echo "$ws_name" | tr '[:lower:]' '[:upper:]')
-      atlassian_env_vars="${atlassian_env_vars}ATLASSIAN_${upper}_TOKEN=${ws_token}
+      # Emit one block per workspace: 4 non-secret env vars (URLs + usernames
+      # for Confluence and Jira) plus the shared API token. mcp-atlassian
+      # reads the non-prefixed CONFLUENCE_*/JIRA_* vars; `.mcp.json` maps
+      # each MCP instance to its namespaced ATLASSIAN_<NAME>_* equivalent.
+      atlassian_env_vars="${atlassian_env_vars}ATLASSIAN_${upper}_CONFLUENCE_URL=${ws_url}/wiki
+ATLASSIAN_${upper}_CONFLUENCE_USERNAME=${ws_email}
+ATLASSIAN_${upper}_JIRA_URL=${ws_url}
+ATLASSIAN_${upper}_JIRA_USERNAME=${ws_email}
+ATLASSIAN_${upper}_TOKEN=${ws_token}
 "
       if [ "$(ask_yn 'Add another Atlassian workspace?' 'n')" = "false" ]; then
         break

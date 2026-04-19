@@ -20,11 +20,11 @@
       "command": "uvx",
       "args": ["mcp-atlassian"],
       "env": {
-        "CONFLUENCE_URL": "{{url}}/wiki",
-        "CONFLUENCE_USERNAME": "{{email}}",
+        "CONFLUENCE_URL": "${ATLASSIAN_{{NAME}}_CONFLUENCE_URL}",
+        "CONFLUENCE_USERNAME": "${ATLASSIAN_{{NAME}}_CONFLUENCE_USERNAME}",
         "CONFLUENCE_API_TOKEN": "${ATLASSIAN_{{NAME}}_TOKEN}",
-        "JIRA_URL": "{{url}}",
-        "JIRA_USERNAME": "{{email}}",
+        "JIRA_URL": "${ATLASSIAN_{{NAME}}_JIRA_URL}",
+        "JIRA_USERNAME": "${ATLASSIAN_{{NAME}}_JIRA_USERNAME}",
         "JIRA_API_TOKEN": "${ATLASSIAN_{{NAME}}_TOKEN}"
       }
     }{{/each}}{{#if MCPS_GITHUB_ENABLED}},

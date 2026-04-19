@@ -25,6 +25,7 @@ Dentro de la sesión tmux:
 1. Elige un tema (Enter acepta el default) y confirma trust en `/workspace`.
 2. Corre `/login`, abre la URL en el navegador, autoriza, pega el código de vuelta. Las credenciales viven en el named volume (`{{AGENT_NAME}}-state`) y sobreviven rebuilds.
 3. Escribe `/exit` (o Ctrl-D). Claude cierra; el watchdog se entera y re-evalúa qué lanzar.
+4. **Espera ~2–3 segundos** para que el supervisor detecte el cierre y arranque la siguiente sesión tmux (el wizard de Telegram). Si haces re-attach demasiado rápido, verás `no sessions` — vuelve a intentarlo.
 
 ## 3. Ingresa el token del bot de Telegram
 
@@ -41,6 +42,8 @@ El supervisor ahora detecta el perfil autenticado y lanza el wizard in-container
 - Por cada workspace de Atlassian declarado en `agent.yml`, pega el API token (o Enter para saltarlo).
 
 El wizard escribe `/workspace/.env` (0600) y sale. El watchdog ve que la sesión murió, re-decide, y esta vez arranca Claude con `--channels plugin:telegram@claude-plugins-official`. El MCP server del plugin (`bun server.ts`) arranca solo y empieza a polear Telegram.
+
+**Espera ~2–3 segundos** otra vez antes de re-attach — mismo gap que después de `/exit`.
 
 ## 4. Emparejar tu cuenta de Telegram
 

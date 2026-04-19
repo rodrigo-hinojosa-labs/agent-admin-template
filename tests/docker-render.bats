@@ -134,8 +134,16 @@ teardown() { teardown_tmp_dir; }
 
 @test "start_services.sh starts tmux session named 'agent'" {
   content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
-  [[ "$content" == *'tmux new-session -d -s agent'* ]]
-  [[ "$content" == *"CLAUDE_CONFIG_DIR=/home/agent/.claude"* ]]
+  [[ "$content" == *'SESSION="agent"'* ]]
+  [[ "$content" == *'tmux new-session -d -s "$SESSION"'* ]]
+  [[ "$content" == *'CLAUDE_CONFIG_DIR_VAL="/home/agent/.claude"'* ]]
+}
+
+@test "start_services.sh auto-installs the channel plugin on launch" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *'ensure_plugin_installed'* ]]
+  [[ "$content" == *'telegram@claude-plugins-official'* ]]
+  [[ "$content" == *'claude plugin install'* ]]
 }
 
 @test "start_services.sh has 5-crashes-in-5-minutes backoff" {

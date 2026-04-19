@@ -2,8 +2,14 @@
 # In-container supervisor. Runs as the `agent` user (entrypoint drops privs).
 # Responsibilities:
 #   1. Start crond so the heartbeat fires on schedule.
-#   2. Launch the persistent tmux session running claude.
-#   3. Watchdog loop: respawn tmux/claude on death, exit to Docker on excessive crashes.
+#   2. Before each claude launch, try to auto-install the required plugins
+#      (idempotent; silently no-ops if the user hasn't /login'd yet).
+#   3. Launch the persistent tmux session running claude. Enable `--channels`
+#      only if the channel plugin is actually present; otherwise the plugin
+#      MCP server would error at startup and spam the watchdog.
+#   4. Watchdog loop: respawn tmux/claude on death, exit to Docker on
+#      excessive crashes. Post-login, the first respawn auto-installs the
+#      plugin and the second respawn attaches --channels.
 
 set -euo pipefail
 
@@ -13,20 +19,66 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [start_services] $*"; }
 log "starting crond"
 crond -b -L /workspace/claude.cron.log
 
-# ── 2. tmux + claude ──────────────────────────────────────
+# ── 2. Config ─────────────────────────────────────────────
 SESSION="agent"
 WORKDIR="/workspace"
-CLAUDE_CMD='CLAUDE_CONFIG_DIR=/home/agent/.claude claude --channels plugin:telegram@claude-plugins-official'
+CLAUDE_CONFIG_DIR_VAL="/home/agent/.claude"
+REQUIRED_CHANNEL_PLUGIN="telegram@claude-plugins-official"
 
 MAX_CRASHES=5
 WINDOW=300
 CRASH_COUNT=0
 WINDOW_START=$(date +%s)
 
+# ── 3. Plugin auto-install ────────────────────────────────
+# `claude plugin install` requires an authenticated profile. On first boot
+# (before the user runs /login inside tmux) it will fail — that's fine; we
+# swallow the error and launch claude without --channels so the user can
+# actually get through /login. On the next watchdog respawn (after /login),
+# the install succeeds and --channels attaches automatically.
+plugin_cache_dir_for() {
+  # telegram@claude-plugins-official → /home/agent/.claude/plugins/cache/claude-plugins-official/telegram
+  local spec="$1"
+  local name="${spec%@*}"
+  local marketplace="${spec#*@}"
+  echo "$HOME/.claude/plugins/cache/$marketplace/$name"
+}
+
+ensure_plugin_installed() {
+  local spec="$1"
+  local cache
+  cache=$(plugin_cache_dir_for "$spec")
+  if [ -d "$cache" ]; then
+    return 0
+  fi
+  log "attempting to install plugin: $spec"
+  if CLAUDE_CONFIG_DIR="$CLAUDE_CONFIG_DIR_VAL" claude plugin install "$spec" >/dev/null 2>&1; then
+    log "plugin installed: $spec"
+    return 0
+  fi
+  log "plugin install skipped (not authenticated yet or install failed): $spec"
+  return 1
+}
+
+# ── 4. Claude launch command builder ──────────────────────
+build_claude_cmd() {
+  local base="CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR_VAL claude"
+  if ensure_plugin_installed "$REQUIRED_CHANNEL_PLUGIN" \
+     && [ -d "$(plugin_cache_dir_for "$REQUIRED_CHANNEL_PLUGIN")" ]; then
+    echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN"
+  else
+    echo "$base"
+  fi
+}
+
+# ── 5. tmux session lifecycle ─────────────────────────────
 start_session() {
+  local cmd
+  cmd=$(build_claude_cmd)
+  log "launching: $cmd"
   tmux kill-session -t "$SESSION" 2>/dev/null || true
   sleep 1
-  tmux new-session -d -s "$SESSION" -c "$WORKDIR" "$CLAUDE_CMD"
+  tmux new-session -d -s "$SESSION" -c "$WORKDIR" "$cmd"
   tmux pipe-pane -t "$SESSION" "cat >> /workspace/claude.log"
   sleep 2
   tmux has-session -t "$SESSION" 2>/dev/null
@@ -43,7 +95,7 @@ if ! start_session; then
   exit 1
 fi
 
-# ── 3. Watchdog ───────────────────────────────────────────
+# ── 6. Watchdog ───────────────────────────────────────────
 while true; do
   sleep 10
   if claude_running; then

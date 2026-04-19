@@ -54,9 +54,9 @@ The wizard writes `/workspace/.env` with 0600 permissions. Once complete, it exi
 
 Detach from `docker attach` without killing the container with `Ctrl-p Ctrl-q` (NOT `Ctrl-c`).
 
-## One-time Claude authentication and plugin setup
+## One-time Claude authentication (plugin auto-installs)
 
-OAuth login and plugin install happen once, inside the running container. Reconnect to the tmux session:
+OAuth login happens once, inside the running container. Reconnect to the tmux session:
 
 ```bash
 docker exec -it <name> tmux attach -t agent
@@ -66,8 +66,13 @@ Inside the session:
 
 1. Pick a theme (Enter accepts the default) and confirm trust on `/workspace`.
 2. `/login` → opens an OAuth URL → paste the returned code. Credentials persist on the named state volume.
-3. `/plugin install telegram@claude-plugins-official`.
-4. `/reload-plugins` (or restart the container with `docker compose restart` — same effect; picks up the newly installed plugin's MCP server).
+3. `/exit` (or Ctrl-D). The watchdog in `start_services.sh` respawns Claude; on this respawn it detects the now-authenticated profile, runs `claude plugin install telegram@claude-plugins-official` (idempotent), and launches Claude with `--channels` active. No manual `/plugin install` / `/reload-plugins` step.
+
+Re-attach to the session:
+
+```bash
+docker exec -it <name> tmux attach -t agent
+```
 
 Then pair your Telegram account:
 

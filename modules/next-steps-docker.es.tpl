@@ -17,7 +17,7 @@ Para salir de `docker attach` sin matar el contenedor: `Ctrl-p Ctrl-q` (NO `Ctrl
 
 ## 2. Autenticación única de Claude
 
-Después del reinicio, reconéctate a la sesión y completa la configuración:
+Después del reinicio, reconéctate a la sesión:
 
 ```bash
 docker exec -it {{AGENT_NAME}} tmux attach -t agent
@@ -25,10 +25,9 @@ docker exec -it {{AGENT_NAME}} tmux attach -t agent
 
 Dentro de la sesión:
 
-1. Elige un tema (Enter acepta el default).
+1. Elige un tema (Enter acepta el default) y confirma trust en `/workspace`.
 2. `/login` → abre la URL en el navegador → autoriza → pega el código de vuelta. Las credenciales viven en el named volume (`{{AGENT_NAME}}-state`) y sobreviven rebuilds.
-3. `/plugin install telegram@claude-plugins-official` → agrega el bridge bidireccional de Telegram.
-4. `/reload-plugins`.
+3. Escribe `/exit` (o Ctrl-D). El watchdog respawneará Claude automáticamente — en ese respawn, `start_services.sh` detecta que el perfil ya está autenticado e instala el plugin `telegram@claude-plugins-official` con `--channels` habilitado. No tienes que hacer `/plugin install` manualmente.
 
 ## 3. Emparejar tu cuenta de Telegram
 

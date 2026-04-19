@@ -1,8 +1,8 @@
 # {{AGENT_DISPLAY_NAME}} — siguientes pasos (modo Docker)
 
-Tu agente está estructurado como contenedor Docker en `{{DEPLOYMENT_WORKSPACE}}`.
+Tu agente está scaffoldeado como contenedor Docker en `{{DEPLOYMENT_WORKSPACE}}`.
 
-## Primer arranque
+## 1. Build y arranque
 
 ```bash
 cd {{DEPLOYMENT_WORKSPACE}}
@@ -11,26 +11,57 @@ docker compose up -d
 docker attach {{AGENT_NAME}}
 ```
 
-El wizard del primer arranque del contenedor te pide el token del bot de Telegram y el chat id, escribe `/workspace/.env` (0600), y luego sale. La política `unless-stopped` de Docker reinicia el contenedor a estado estable.
+El wizard dentro del contenedor te pide el bot token (de @BotFather) y, opcionalmente, un GitHub PAT. Escribe `/workspace/.env` (0600) y sale — la política `unless-stopped` de Docker reinicia el contenedor a estado estable en segundos.
 
-## Uso diario
+Para salir de `docker attach` sin matar el contenedor: `Ctrl-p Ctrl-q` (NO `Ctrl-c`).
 
-Reconecta desde cualquier terminal:
+## 2. Autenticación única de Claude
+
+Después del reinicio, reconéctate a la sesión y completa la configuración:
 
 ```bash
 docker exec -it {{AGENT_NAME}} tmux attach -t agent
 ```
 
-`Ctrl-b d` para desconectarte sin matar la sesión.
+Dentro de la sesión:
 
-## Upgrade y desmantelamiento
+1. Elige un tema (Enter acepta el default).
+2. `/login` → abre la URL en el navegador → autoriza → pega el código de vuelta. Las credenciales viven en el named volume (`{{AGENT_NAME}}-state`) y sobreviven rebuilds.
+3. `/plugin install telegram@claude-plugins-official` → agrega el bridge bidireccional de Telegram.
+4. `/reload-plugins`.
 
-Ver [docs/docker-mode.md](docs/docker-mode.md) para upgrade, rollback, rotación de secretos, y desmantelamiento.
+## 3. Emparejar tu cuenta de Telegram
 
-## Comandos útiles
+1. Mándale un DM al bot desde Telegram — te responde con un código de 6 caracteres.
+2. En la sesión de Claude: `/telegram:access pair <código>` (aprueba el overwrite de `access.json`).
+3. Tu chat id queda en el allowlist; el bot confirma con "you're in".
+4. Manda otro mensaje desde Telegram para verificar que llega a Claude.
+
+Para desconectarte sin matar la sesión: `Ctrl-b d`.
+
+## Uso diario
 
 ```bash
-./setup.sh --regenerate          # después de editar agent.yml
-./setup.sh --uninstall --yes     # detener contenedor, remover volumen, unit file
-./setup.sh --uninstall --nuke --yes  # también borrar el directorio del workspace
+# Reconectar a la sesión
+docker exec -it {{AGENT_NAME}} tmux attach -t agent
+
+# Rotar un secreto
+$EDITOR {{DEPLOYMENT_WORKSPACE}}/.env
+docker compose restart
+
+# Actualizar a una versión nueva del template
+cd {{DEPLOYMENT_WORKSPACE}}
+git pull                                 # si tu workspace es un fork
+docker compose build && docker compose up -d
 ```
+
+## Desmantelamiento
+
+```bash
+./setup.sh --uninstall --yes             # detiene contenedor, remueve named volume + unit de host
+./setup.sh --uninstall --nuke --yes      # también borra este directorio de workspace
+```
+
+## Troubleshooting
+
+Issues comunes y soluciones en [docs/docker-mode.md](docs/docker-mode.md) (plugin no conecta, permisos, crond silencioso, UID mismatch, etc.).

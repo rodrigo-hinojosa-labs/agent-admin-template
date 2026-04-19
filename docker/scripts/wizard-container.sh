@@ -15,14 +15,14 @@ echo "╰───────────────────────�
 echo ""
 
 # Telegram — required for the agent to be reachable.
+# The official `telegram@claude-plugins-official` plugin handles pairing
+# dynamically (no pre-configured chat id needed — the allowlist is built
+# via /telegram:access pair <code> after first DM), so we only collect the
+# bot token here. The allowlist lives in /home/agent/.claude/channels/
+# (named volume) after pairing.
 BOT=$(gum input --password --prompt "Telegram bot token (from @BotFather): ")
 if [ -z "$BOT" ]; then
   echo "ERROR: Telegram bot token cannot be empty." >&2
-  exit 1
-fi
-CHAT=$(gum input --prompt "Your Telegram chat id (from @userinfobot): ")
-if [ -z "$CHAT" ]; then
-  echo "ERROR: Telegram chat id cannot be empty." >&2
   exit 1
 fi
 
@@ -39,7 +39,6 @@ umask 077
   echo "# NEVER commit this file."
   echo
   echo "TELEGRAM_BOT_TOKEN=${BOT}"
-  echo "TELEGRAM_CHAT_ID=${CHAT}"
   [ -n "$GH_PAT" ] && echo "GITHUB_PAT=${GH_PAT}"
 } > "$ENV_FILE"
 chmod 0600 "$ENV_FILE"

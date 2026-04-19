@@ -40,17 +40,42 @@ After scaffolding, start the agent:
 
 ```bash
 cd ~/agents/<name>
+docker compose build
 docker compose up -d
 docker attach <name>
 ```
 
 The container starts and the in-container wizard fires (interactive via `gum` prompts):
 
-1. **Telegram bot token** — the token from `@BotFather` on Telegram.
-2. **Telegram chat ID** — your numeric user ID or group chat ID.
-3. **GitHub PAT** (optional) — personal access token for the GitHub MCP.
+1. **Telegram bot token** — the token from `@BotFather` on Telegram. The `telegram@claude-plugins-official` plugin uses dynamic pairing, so no chat id is collected here — you'll pair after `/login`.
+2. **GitHub PAT** (optional) — personal access token for the GitHub MCP.
 
 The wizard writes `/workspace/.env` with 0600 permissions. Once complete, it exits. The container restarts (due to `unless-stopped` policy) and begins steady-state operation.
+
+Detach from `docker attach` without killing the container with `Ctrl-p Ctrl-q` (NOT `Ctrl-c`).
+
+## One-time Claude authentication and plugin setup
+
+OAuth login and plugin install happen once, inside the running container. Reconnect to the tmux session:
+
+```bash
+docker exec -it <name> tmux attach -t agent
+```
+
+Inside the session:
+
+1. Pick a theme (Enter accepts the default) and confirm trust on `/workspace`.
+2. `/login` → opens an OAuth URL → paste the returned code. Credentials persist on the named state volume.
+3. `/plugin install telegram@claude-plugins-official`.
+4. `/reload-plugins` (or restart the container with `docker compose restart` — same effect; picks up the newly installed plugin's MCP server).
+
+Then pair your Telegram account:
+
+1. DM the bot from Telegram — it returns a 6-character pairing code.
+2. In the Claude session: `/telegram:access pair <code>` (accept the `access.json` overwrite prompt).
+3. Send a test DM — it should reach Claude and trigger a reply.
+
+Detach with `Ctrl-b d`.
 
 ## Daily Use
 
@@ -136,6 +161,55 @@ After teardown, no traces of the agent remain on the host (no dotfiles, no syste
 
 ## Troubleshooting
 
+### `plugin:telegram:telegram · ✘ failed` (no pairing code sent)
+
+Two possible causes:
+
+1. **Plugin not installed yet.** On a fresh container Claude is launched with `--channels plugin:telegram@claude-plugins-official` but the plugin hasn't been `/plugin install`'d. Run the one-time setup from "One-time Claude authentication and plugin setup" above, then `docker compose restart` so Claude re-launches with the plugin active (in-place `/reload-plugins` reloads skills/commands but doesn't always re-hook the `--channels` poller).
+2. **`bun` missing from the image.** The plugin's MCP server is a bun script. The shipped Dockerfile installs bun; if you built a custom image without it, `/mcp` will show the plugin as failed. Run `docker exec <name> bun --version` to confirm.
+
+Verify with `/mcp` inside the Claude session — look for the line `plugin:telegram:telegram · ✔ connected`.
+
+### `uvx: not found` on `time` / `fetch` / `atlassian-*` MCPs
+
+These MCPs run via `uvx` (astral's `uv` Python runner). The shipped Dockerfile installs `uv` statically. Check:
+
+```bash
+docker exec <name> uvx --version
+```
+
+If missing and you're running a custom-built image, rebuild from the template's Dockerfile or add the `uv` install step manually.
+
+### `docker attach` doesn't respond to keystrokes
+
+`docker attach` is connected but the wizard (gum-driven) needs a TTY. The shipped `docker-compose.yml.tpl` sets `stdin_open: true` and `tty: true` — if you wrote a custom compose without these, input will silently drop. Add them and recreate:
+
+```bash
+docker compose up -d --force-recreate
+```
+
+**Always detach with `Ctrl-p Ctrl-q`.** `Ctrl-c` sends SIGINT and kills the container.
+
+### `addgroup: gid '<N>' in use` at build time
+
+macOS users have GID 20 (`staff`) and alpine ships a system group at GID 20 (`dialout`). The Dockerfile handles this by deleting the conflicting group/user before creating `agent`. If you modified the group-creation stanza, put the delete-then-create logic back (see `docker/Dockerfile`).
+
+### Telegram bot responds with only the welcome text (no pairing code)
+
+The bot polls via long-poll. If it sends only `"This bot bridges Telegram to a Claude Code session. To pair: …"` and never emits a code, the plugin's MCP server isn't running. Check:
+
+```bash
+docker exec <name> ps -ef | grep -E "bun|telegram"
+docker exec -u agent <name> tmux send-keys -t agent '/mcp' Enter
+docker exec -u agent <name> tmux capture-pane -t agent -p | tail -30
+```
+
+Look for `plugin:telegram:telegram · ✔ connected`. If `✘ failed`, apply the fix in the first entry above.
+
+### `🔐 Permission: mcp__plugin_telegram_telegram__reply: not authorized`
+
+The bot surfaces this when Claude tries to reply but the MCP tool call wasn't pre-authorized. Inside the Claude session, when prompted "Do you want to proceed?", pick **option 2** ("Yes, and always allow access to telegram/ from this project"). This writes a setting under the project that skips future prompts. If your pairing already happened and you want persistent approval, run any `/telegram:access …` command once more and accept option 2.
+
 ### UID mismatch (permission errors in logs)
 
 If you see permission errors on bind-mount files, verify that `docker.uid` in `agent.yml` matches the host user:
@@ -151,46 +225,29 @@ If they differ:
 # Edit agent.yml and update docker.uid to match your user ID
 nano ~/agents/<name>/agent.yml
 docker compose build
-docker compose up -d
+docker compose up -d --force-recreate
 ```
 
 ### Container logs
 
-View container startup and runtime logs:
-
 ```bash
 docker logs <name>
-docker logs -f <name>  # follow in real time
+docker logs -f <name>           # follow in real time
+docker exec <name> cat /workspace/claude.log       # tmux pane capture
+docker exec <name> cat /workspace/claude.cron.log  # crond heartbeat log
 ```
 
-### Crond logs
+### Wizard re-fires on every restart
 
-The heartbeat runs via `crond` inside the container. If the heartbeat is not firing, check:
+Means `/workspace/.env` is missing, empty, or doesn't contain `TELEGRAM_BOT_TOKEN=<non-empty>`. Verify:
 
 ```bash
-docker exec <name> cat /workspace/claude.cron.log
+ls -la ~/agents/<name>/.env       # should be 0600
+grep "^TELEGRAM_BOT_TOKEN=" ~/agents/<name>/.env
 ```
 
-### Wizard re-fires after reboot
+If the value is present but the wizard still fires, check that the bind-mount path matches: `docker exec <name> cat /workspace/.env` should show the same content.
 
-If the wizard runs again on container restart, the `.env` file is missing or corrupted. Verify:
+### `3 MCP servers failed` / `4 MCP servers failed` at launch
 
-```bash
-ls -la ~/agents/<name>/.env
-cat ~/agents/<name>/.env | grep TELEGRAM_BOT_TOKEN
-```
-
-If missing, populate it and restart:
-
-```bash
-# Re-populate .env interactively
-docker compose up  # (not -d) to run the wizard again
-# Complete the prompts, then Ctrl-C and restart as daemon
-docker compose up -d
-```
-
-If `.env` exists but the wizard still fires, check permissions:
-
-```bash
-stat ~/agents/<name>/.env  # should be 0600, owned by your user
-```
+`/mcp` inside the Claude session lists each server with its connection state. Ignore failures from `claude.ai`-scoped servers (those require external auth you haven't configured); the ones to care about are `plugin:telegram:telegram`, `atlassian-*`, `github`, `playwright`. Most failures trace back to missing env vars in `/workspace/.env` (Atlassian token, GitHub PAT) or missing binaries (`bun`, `uvx`).

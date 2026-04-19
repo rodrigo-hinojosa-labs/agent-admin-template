@@ -40,6 +40,46 @@ RUN set -eux; \
     mv /tmp/gum/gum /usr/local/bin/gum; \
     rm -rf /tmp/gum
 
+# Install uv / uvx (required by MCPs that ship as Python packages —
+# time, fetch, mcp-atlassian). Without this, those MCPs fail at startup
+# with "uvx: not found".
+ARG UV_VERSION=0.5.14
+RUN set -eux; \
+    arch=$(uname -m); \
+    case "$arch" in \
+      x86_64) uv_arch="x86_64-unknown-linux-musl" ;; \
+      aarch64) uv_arch="aarch64-unknown-linux-musl" ;; \
+      *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /tmp/uv; \
+    curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${uv_arch}.tar.gz" \
+      | tar -xz -C /tmp/uv --strip-components=1; \
+    mv /tmp/uv/uv /tmp/uv/uvx /usr/local/bin/; \
+    chmod +x /usr/local/bin/uv /usr/local/bin/uvx; \
+    rm -rf /tmp/uv; \
+    uv --version
+
+# Install bun (required by the official telegram plugin which ships a bun-
+# runtime MCP server, and useful for any other modern JS tooling).
+ARG BUN_VERSION=1.1.38
+RUN set -eux; \
+    apk add --no-cache libgcc libstdc++; \
+    apk add --no-cache --virtual .bun-unpack unzip; \
+    arch=$(uname -m); \
+    case "$arch" in \
+      x86_64) bun_arch="x64" ;; \
+      aarch64) bun_arch="aarch64" ;; \
+      *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_arch}-musl.zip" \
+      -o /tmp/bun.zip; \
+    unzip -q /tmp/bun.zip -d /tmp; \
+    mv "/tmp/bun-linux-${bun_arch}-musl/bun" /usr/local/bin/bun; \
+    chmod +x /usr/local/bin/bun; \
+    rm -rf /tmp/bun.zip "/tmp/bun-linux-${bun_arch}-musl"; \
+    apk del .bun-unpack; \
+    bun --version
+
 # Install Claude Code CLI globally so both root (for first-run chown) and
 # the `agent` user can invoke it.
 RUN npm install -g @anthropic-ai/claude-code

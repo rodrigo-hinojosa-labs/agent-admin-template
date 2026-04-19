@@ -11,30 +11,47 @@ docker compose up -d
 docker attach {{AGENT_NAME}}
 ```
 
-The in-container wizard asks for your Telegram bot token (from @BotFather) and optionally a GitHub PAT. It writes `/workspace/.env` (0600) and exits — Docker's `unless-stopped` policy restarts the container into steady state within seconds.
-
+The container starts Claude Code directly — no prompts, no wizards yet.
 Detach from `docker attach` without killing the container: `Ctrl-p Ctrl-q` (NOT `Ctrl-c`).
 
-## 2. One-time Claude authentication
+## 2. Log in to Claude (one-time)
 
-After the container restarts, reconnect to the session:
+Inside the attached session:
+
+1. Pick a theme (Enter accepts the default) and confirm trust on `/workspace`.
+2. Run `/login`, open the URL in your browser, authorize, paste the code back. Credentials land on the named state volume (`{{AGENT_NAME}}-state`) and survive rebuilds.
+3. Type `/exit` (or Ctrl-D). Claude closes; the watchdog notices and re-evaluates what to launch next.
+
+## 3. Enter your Telegram bot token
+
+Re-attach to the tmux session:
 
 ```bash
 docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
 ```
 
-Inside the session:
+The supervisor now detects the authenticated profile and launches the in-container wizard:
 
-1. Pick a theme (Enter accepts the default) and confirm trust on `/workspace`.
-2. `/login` → open the URL in your browser → authorize → paste the code back. Credentials land on the named state volume (`{{AGENT_NAME}}-state`) and survive rebuilds.
-3. Type `/exit` (or Ctrl-D). The watchdog will respawn Claude automatically — on that respawn, `start_services.sh` detects the profile is now authenticated and auto-installs the `telegram@claude-plugins-official` plugin with `--channels` enabled. No manual `/plugin install` needed.
+- `Telegram bot token (from @BotFather):` — paste your token.
+- `Add a GitHub Personal Access Token (for gh / MCP)?` — optional.
+- For each Atlassian workspace declared in `agent.yml`, paste the API token (or press Enter to skip).
 
-## 3. Pair your Telegram account
+The wizard writes `/workspace/.env` (0600) and exits. The watchdog sees the session die, re-decides, and this time launches Claude with `--channels plugin:telegram@claude-plugins-official`. The plugin's MCP server (`bun server.ts`) starts automatically and begins polling Telegram.
 
-1. DM your bot from Telegram — it replies with a 6-character code.
-2. In the Claude session: `/telegram:access pair <code>` (approve the overwrite of `access.json` when prompted).
+## 4. Pair your Telegram account
+
+Re-attach once more:
+
+```bash
+docker exec -it -u agent {{AGENT_NAME}} tmux attach -t agent
+```
+
+Then:
+
+1. DM your bot from Telegram — it replies with a 6-character pairing code.
+2. In the Claude session: `/telegram:access pair <code>` (approve the `access.json` overwrite prompt).
 3. Your chat id is now on the allowlist; the bot will confirm with "you're in".
-4. Send another message from Telegram to verify it reaches Claude.
+4. Send another DM to verify — it reaches Claude, Claude replies.
 
 Detach with `Ctrl-b d`.
 

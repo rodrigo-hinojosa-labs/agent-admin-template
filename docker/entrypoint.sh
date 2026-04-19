@@ -24,15 +24,12 @@ if [ -f /opt/agent-admin/crontab.tpl ]; then
   log "crontab rendered"
 fi
 
-# 3. First-run wizard check. If the workspace .env is missing, or lacks the
-#    Telegram bot token, launch the interactive wizard (as agent) so the
-#    operator can paste secrets without leaving the container.
-ENV_FILE="$WORKSPACE/.env"
-if [ ! -f "$ENV_FILE" ] || ! grep -q "^TELEGRAM_BOT_TOKEN=" "$ENV_FILE"; then
-  log "first-run detected -- launching wizard"
-  exec su-exec agent /opt/agent-admin/scripts/wizard-container.sh
-fi
-
-# 4. Steady state: drop to agent and exec the service supervisor.
+# 3. Drop to `agent` and hand off to the supervisor. The supervisor is the
+#    authority on what to launch next: a bare Claude session so the user can
+#    `/login` first, the Telegram wizard once the profile is authenticated
+#    but missing the bot token, or a channel-enabled Claude once everything
+#    is in place. Keeping that decision in start_services.sh (not here)
+#    means the watchdog can re-evaluate on every respawn without a full
+#    container restart.
 log "starting services"
 exec su-exec agent /opt/agent-admin/scripts/start_services.sh

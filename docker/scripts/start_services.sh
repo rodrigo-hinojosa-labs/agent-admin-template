@@ -95,24 +95,43 @@ ensure_channel_env_synced() {
   log "synced ${workspace_key} from /workspace/.env → ${channel_env}"
 }
 
-# ── 4. Claude launch command builder ──────────────────────
-build_claude_cmd() {
+# ── 4. Launch-decision helpers ────────────────────────────
+# Whether /workspace/.env contains a non-empty TELEGRAM_BOT_TOKEN.
+has_telegram_token() {
+  [ -f /workspace/.env ] || return 1
+  local val
+  val=$(grep "^TELEGRAM_BOT_TOKEN=" /workspace/.env 2>/dev/null | head -1 | cut -d= -f2-)
+  [ -n "$val" ]
+}
+
+# Build the next tmux command based on current state. Three cases:
+#   A. Not authenticated → bare `claude` so the user can `/login`.
+#   B. Authenticated, no Telegram bot token yet → interactive wizard to
+#      collect it. Writes /workspace/.env then exits; watchdog re-decides.
+#   C. Authenticated and token present → `claude --channels plugin:...` with
+#      the channel-scoped .env synced beforehand.
+next_tmux_cmd() {
   local base="CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR_VAL claude"
-  if ensure_plugin_installed "$REQUIRED_CHANNEL_PLUGIN" \
-     && [ -d "$(plugin_cache_dir_for "$REQUIRED_CHANNEL_PLUGIN")" ]; then
-    # Plugin is installed — make sure its channel-scoped .env has the token
-    # before we attach --channels, or the MCP server errors out on boot.
-    ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
-    echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN"
-  else
+  if ! ensure_plugin_installed "$REQUIRED_CHANNEL_PLUGIN"; then
+    # Case A: still not authenticated (or install genuinely failed).
     echo "$base"
+    return
   fi
+  if ! has_telegram_token; then
+    # Case B: authenticated, need the bot token.
+    log "authenticated profile detected with no Telegram token — launching wizard"
+    echo "/opt/agent-admin/scripts/wizard-container.sh"
+    return
+  fi
+  # Case C: steady state with channel attached.
+  ensure_channel_env_synced "telegram" "TELEGRAM_BOT_TOKEN" || true
+  echo "$base --channels plugin:$REQUIRED_CHANNEL_PLUGIN"
 }
 
 # ── 5. tmux session lifecycle ─────────────────────────────
 start_session() {
   local cmd
-  cmd=$(build_claude_cmd)
+  cmd=$(next_tmux_cmd)
   log "launching: $cmd"
   tmux kill-session -t "$SESSION" 2>/dev/null || true
   sleep 1
@@ -122,9 +141,12 @@ start_session() {
   tmux has-session -t "$SESSION" 2>/dev/null
 }
 
-claude_running() {
-  tmux has-session -t "$SESSION" 2>/dev/null || return 1
-  pgrep -f "claude" >/dev/null 2>&1
+# Session is "alive" when the tmux session still exists. Whatever is running
+# inside it (claude, the wizard) is the supervisor's concern — this just
+# tells the watchdog when it needs to re-decide. Dropping the pgrep claude
+# check also prevents false positives during the Telegram wizard phase.
+session_alive() {
+  tmux has-session -t "$SESSION" 2>/dev/null
 }
 
 log "starting tmux session '$SESSION'"
@@ -136,7 +158,7 @@ fi
 # ── 6. Watchdog ───────────────────────────────────────────
 while true; do
   sleep 10
-  if claude_running; then
+  if session_alive; then
     continue
   fi
 

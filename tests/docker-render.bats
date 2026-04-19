@@ -113,17 +113,21 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"/etc/crontabs/agent"* ]]
 }
 
-@test "entrypoint.sh routes to wizard when .env missing TELEGRAM_BOT_TOKEN" {
-  content=$(< "$REPO_ROOT/docker/entrypoint.sh")
-  [[ "$content" == *"/workspace/.env"* ]]
-  [[ "$content" == *"TELEGRAM_BOT_TOKEN"* ]]
-  [[ "$content" == *"wizard-container.sh"* ]]
-}
-
-@test "entrypoint.sh execs start_services.sh as agent user" {
+@test "entrypoint.sh hands off unconditionally to start_services.sh" {
+  # Launch decisions (bare claude / wizard / claude --channels) live in the
+  # supervisor, not the entrypoint — so the entrypoint never routes to the
+  # wizard directly and never gates on TELEGRAM_BOT_TOKEN.
   content=$(< "$REPO_ROOT/docker/entrypoint.sh")
   [[ "$content" == *"su-exec agent"* || "$content" == *"exec su agent"* ]]
   [[ "$content" == *"start_services.sh"* ]]
+  [[ "$content" != *"wizard-container.sh"* ]]
+}
+
+@test "start_services.sh decides launch based on auth + token presence" {
+  content=$(< "$REPO_ROOT/docker/scripts/start_services.sh")
+  [[ "$content" == *"has_telegram_token"* ]]
+  [[ "$content" == *"next_tmux_cmd"* ]]
+  [[ "$content" == *"wizard-container.sh"* ]]
 }
 
 @test "start_services.sh starts crond in background" {

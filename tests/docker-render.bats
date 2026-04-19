@@ -170,6 +170,23 @@ teardown() { teardown_tmp_dir; }
   [[ "$content" == *"exit 0"* ]]
 }
 
+@test "wizard-container.sh upserts into existing .env without clobbering other keys" {
+  content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
+  # Has the upsert helper and uses sed -i for in-place replace.
+  [[ "$content" == *"update_env_var"* ]]
+  [[ "$content" == *"sed -i"* ]]
+  # Only opens the file for `>` inside a "file doesn't exist yet" guard;
+  # every other write goes via >> (append) in update_env_var.
+  [[ "$content" == *'if [ ! -f "$ENV_FILE" ]'* ]]
+  [[ "$content" == *'>> "$ENV_FILE"'* ]]
+}
+
+@test "wizard-container.sh prompts for Atlassian tokens listed in agent.yml" {
+  content=$(< "$REPO_ROOT/docker/scripts/wizard-container.sh")
+  [[ "$content" == *"mcps.atlassian"* ]]
+  [[ "$content" == *"ATLASSIAN_"* ]]
+}
+
 @test "docker-compose.yml.tpl allocates stdin/tty for interactive first-run wizard" {
   result=$(render_template "$REPO_ROOT/modules/docker-compose.yml.tpl")
   [[ "$result" == *"stdin_open: true"* ]]

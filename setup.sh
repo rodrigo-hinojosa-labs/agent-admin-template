@@ -377,12 +377,20 @@ run_wizard() {
   local atlassian_entries=""
   local atlassian_env_vars=""
   if [ "$(ask_yn 'Enable Atlassian MCP?' 'n')" = "true" ]; then
+    if [ "$MODE_DOCKER" = true ]; then
+      echo "  Docker mode: per-workspace API tokens will be collected inside the"
+      echo "  container on first boot. Skipping token prompts here."
+    fi
     while true; do
       local ws_name ws_url ws_email ws_token
       ws_name=$(ask_required "Workspace alias (e.g. personal, work) — unique identifier for this Atlassian account")
       ws_url=$(ask_required "Atlassian URL (e.g. https://yourco.atlassian.net)")
       ws_email=$(ask "Email" "$user_email")
-      ws_token=$(ask_secret "API token")
+      if [ "$MODE_DOCKER" = true ]; then
+        ws_token=""
+      else
+        ws_token=$(ask_secret "API token")
+      fi
       atlassian_entries="${atlassian_entries}  - name: ${ws_name}
     url: \"${ws_url}\"
     email: \"${ws_email}\"
